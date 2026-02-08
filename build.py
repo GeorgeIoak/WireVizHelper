@@ -1,0 +1,693 @@
+#!/usr/bin/env python
+"""WireViz build wrapper with minimal BOM header normalization.
+
+This script intentionally keeps post-processing minimal and generic:
+1) Run WireViz on the selected YAML file.
+2) Rename BOM header `SPN` -> `Product Photo` in generated HTML/TSV outputs.
+
+Usage:
+  python build.py [path/to/drawing.yaml] [-- <extra wireviz args>]
+"""
+
+from __future__ import annotations
+
+import csv
+import importlib.util
+import re
+import shutil
+import subprocess
+import sys
+from os.path import relpath
+from pathlib import Path
+try:
+    import yaml
+except ModuleNotFoundError:
+    yaml = None  # type: ignore[assignment]
+
+DEFAULT_YAML_CANDIDATES = ("drawing.yaml",)
+DEFAULT_OUTPUT_DIR = "output"
+PHOTO_HEADER_FROM = "SPN"
+PHOTO_HEADER_TO = "Product Photo"
+SHEETSIZE_TO_MM: dict[str, tuple[float, float]] = {
+    "A4": (297, 210),
+    "A3": (420, 297),
+    "A2": (594, 420),
+    "LETTER": (279.4, 215.9),
+    "LEGAL": (355.6, 215.9),
+    "TABLOID": (431.8, 279.4),
+}
+WKHTML_PAGE_SIZE: dict[str, str] = {
+    "A4": "A4",
+    "A3": "A3",
+    "A2": "A2",
+    "LETTER": "Letter",
+    "LEGAL": "Legal",
+    "TABLOID": "Tabloid",
+}
+
+
+def split_args(argv: list[str]) -> tuple[list[str], list[str]]:
+    if "--" in argv:
+        idx = argv.index("--")
+        return argv[:idx], argv[idx + 1 :]
+    return argv, []
+
+
+def resolve_yaml(args: list[str]) -> Path:
+    if args:
+        yaml_path = Path(args[0])
+        if not yaml_path.exists():
+            print(f"Error: YAML file not found: {yaml_path}")
+            sys.exit(1)
+        return yaml_path
+
+    for candidate in DEFAULT_YAML_CANDIDATES:
+        yaml_path = Path(candidate)
+        if yaml_path.exists():
+            return yaml_path
+
+    print(
+        "Error: No default YAML file found. Looked for: "
+        + ", ".join(DEFAULT_YAML_CANDIDATES)
+    )
+    sys.exit(1)
+
+
+def load_yaml_data(yaml_path: Path) -> dict:
+    """Load YAML as a dict, returning empty dict on parse/read errors."""
+    if yaml is None:
+        return {}
+    try:
+        data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
+    wireviz_bin = shutil.which("wireviz")
+    cmd = [wireviz_bin, str(yaml_path), *passthrough] if wireviz_bin else [
+        sys.executable,
+        "-m",
+        "wireviz",
+        str(yaml_path),
+        *passthrough,
+    ]
+    return cmd
+
+
+def ensure_runtime_dependencies() -> None:
+    """Best-effort dependency check/install for first-run convenience."""
+    global yaml
+    wireviz_bin = shutil.which("wireviz")
+    wireviz_module = importlib.util.find_spec("wireviz") is not None
+    yaml_module = yaml is not None
+    weasyprint_module = importlib.util.find_spec("weasyprint") is not None
+    wkhtmltopdf_bin = shutil.which("wkhtmltopdf")
+    pdf_engine_ready = weasyprint_module or bool(wkhtmltopdf_bin)
+    if (wireviz_bin or wireviz_module) and yaml_module and pdf_engine_ready:
+        return
+
+    req = Path(__file__).resolve().parent / "requirements.txt"
+    if not req.exists():
+        print(
+            "Error: WireViz is not installed and requirements.txt was not found.\n"
+            "Install dependencies first: python -m pip install wireviz"
+        )
+        sys.exit(1)
+
+    print("Missing runtime dependencies detected. Installing from requirements.txt ...", flush=True)
+    result = subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(req)])
+    if result.returncode != 0:
+        print(
+            "Error: Dependency install failed.\n"
+            f"Try manually: {sys.executable} -m pip install -r {req}"
+        )
+        sys.exit(result.returncode)
+
+    # Re-import PyYAML after successful install if it was missing.
+    if yaml is None:
+        import yaml as _yaml
+
+        yaml = _yaml
+
+
+def _flag_value(args: list[str], short_flag: str, long_flag: str) -> str | None:
+    for i, a in enumerate(args):
+        if a == short_flag or a == long_flag:
+            if i + 1 < len(args):
+                return args[i + 1]
+            return None
+        if a.startswith(f"{long_flag}="):
+            return a.split("=", 1)[1]
+    return None
+
+
+def resolve_output_paths(yaml_path: Path, passthrough: list[str]) -> tuple[Path, str]:
+    output_dir_arg = _flag_value(passthrough, "-o", "--output-dir")
+    output_name_arg = _flag_value(passthrough, "-O", "--output-name")
+
+    if output_dir_arg:
+        output_dir = Path(output_dir_arg)
+        if not output_dir.is_absolute():
+            output_dir = (Path.cwd() / output_dir).resolve()
+    else:
+        output_dir = (yaml_path.parent / DEFAULT_OUTPUT_DIR).resolve()
+
+    output_name = output_name_arg.strip() if output_name_arg else yaml_path.stem
+    return output_dir, output_name
+
+
+def ensure_output_dir_arg(passthrough: list[str], output_dir: Path) -> list[str]:
+    has_output_dir = _flag_value(passthrough, "-o", "--output-dir") is not None
+    if has_output_dir:
+        return passthrough
+    return [*passthrough, "--output-dir", str(output_dir)]
+
+
+def wireviz_command_with_output(yaml_path: Path, passthrough: list[str], output_dir: Path) -> list[str]:
+    passthrough_with_dir = ensure_output_dir_arg(passthrough, output_dir)
+    return wireviz_command(yaml_path, passthrough_with_dir)
+
+
+def prepare_local_template_for_output(
+    yaml_path: Path, output_dir: Path, yaml_data: dict
+) -> None:
+    """Ensure custom template files next to YAML are discoverable when using output dir."""
+    metadata = yaml_data.get("metadata", {})
+    template = metadata.get("template", {}) if isinstance(metadata, dict) else {}
+    template_name = template.get("name") if isinstance(template, dict) else None
+    if not isinstance(template_name, str) or not template_name.strip():
+        return
+
+    if Path(template_name).is_absolute():
+        return
+
+    src = yaml_path.parent / f"{template_name}.html"
+    if not src.exists():
+        # Fallback to toolkit-local template when building external projects.
+        src = Path(__file__).resolve().parent / f"{template_name}.html"
+    if not src.exists():
+        return
+
+    dst = output_dir / src.name
+    if src.resolve() == dst.resolve():
+        return
+    shutil.copy2(src, dst)
+
+
+def resolve_sheetsize(yaml_data: dict) -> str:
+    """Read requested sheet size from YAML metadata, defaulting to A4."""
+    metadata = yaml_data.get("metadata", {})
+    template = metadata.get("template", {}) if isinstance(metadata, dict) else {}
+    sheetsize = template.get("sheetsize") if isinstance(template, dict) else None
+    if not isinstance(sheetsize, str):
+        return "A4"
+    candidate = sheetsize.strip().upper()
+    return candidate if candidate in SHEETSIZE_TO_MM else "A4"
+
+
+def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
+    """Generate a single-page PDF from HTML using an available engine."""
+    if not html_path.exists():
+        return False, "HTML output was not found"
+
+    page_width_mm, page_height_mm = SHEETSIZE_TO_MM.get(sheetsize, SHEETSIZE_TO_MM["A4"])
+
+    # Preferred engine: WeasyPrint (Python package).
+    weasyprint_error: str | None = None
+    try:
+        from weasyprint import CSS, HTML  # type: ignore
+
+        css = CSS(
+            string=(
+                f"@page {{ size: {page_width_mm}mm {page_height_mm}mm !important; margin: 0 !important; }}"
+                "html, body { margin: 0 !important; padding: 0 !important; }"
+                "#sheet { page-break-inside: avoid; break-inside: avoid; }"
+            )
+        )
+        HTML(filename=str(html_path), base_url=str(html_path.parent)).write_pdf(
+            str(pdf_path), stylesheets=[css]
+        )
+        return True, "weasyprint"
+    except Exception as e:
+        weasyprint_error = str(e).strip() or e.__class__.__name__
+
+    # Fallback: wkhtmltopdf CLI.
+    wkhtmltopdf_bin = shutil.which("wkhtmltopdf")
+    if wkhtmltopdf_bin:
+        wk_page_size = WKHTML_PAGE_SIZE.get(sheetsize, "A4")
+        cmd = [
+            wkhtmltopdf_bin,
+            "--enable-local-file-access",
+            "--orientation",
+            "Landscape",
+            "--page-size",
+            wk_page_size,
+            "--margin-top",
+            "0",
+            "--margin-right",
+            "0",
+            "--margin-bottom",
+            "0",
+            "--margin-left",
+            "0",
+            str(html_path),
+            str(pdf_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            return True, "wkhtmltopdf"
+        wk_error = (result.stderr or result.stdout).strip() or "unknown error"
+        if weasyprint_error:
+            return False, f"weasyprint failed ({weasyprint_error}); wkhtmltopdf failed ({wk_error})"
+        return (False, f"wkhtmltopdf failed: {wk_error}")
+
+    if weasyprint_error:
+        return False, f"weasyprint failed: {weasyprint_error} (install wkhtmltopdf as fallback)"
+    return False, "no PDF engine found (install weasyprint or wkhtmltopdf)"
+
+
+def _is_photo_row(row: dict[str, str], photo_col: str) -> bool:
+    description = (row.get("Description") or "").strip().lower()
+    return bool((row.get(photo_col) or "").strip()) and "photo" in description
+
+
+def merge_photo_rows_in_tsv(tsv_path: Path) -> bool:
+    if not tsv_path.exists():
+        return False
+
+    with tsv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+
+    if not rows or not fieldnames:
+        return False
+
+    photo_col = PHOTO_HEADER_FROM if PHOTO_HEADER_FROM in fieldnames else PHOTO_HEADER_TO
+    if photo_col not in fieldnames:
+        return False
+
+    changed = False
+    remove_indexes: set[int] = set()
+
+    non_photo_by_designator: dict[str, int] = {}
+    non_photo_by_mpn: dict[str, int] = {}
+    for idx, row in enumerate(rows):
+        if _is_photo_row(row, photo_col):
+            continue
+        designator = (row.get("Designators") or "").strip()
+        mpn = (row.get("MPN") or "").strip()
+        if designator and designator not in non_photo_by_designator:
+            non_photo_by_designator[designator] = idx
+        if mpn and mpn not in non_photo_by_mpn:
+            non_photo_by_mpn[mpn] = idx
+
+    for idx, row in enumerate(rows):
+        if not _is_photo_row(row, photo_col):
+            continue
+
+        designator = (row.get("Designators") or "").strip()
+        mpn = (row.get("MPN") or "").strip()
+        target_idx: int | None = None
+
+        if designator:
+            target_idx = non_photo_by_designator.get(designator)
+
+        # Fallback when Designators are blank (e.g. connector show_name: false):
+        # match against the same part number.
+        if target_idx is None and mpn:
+            target_idx = non_photo_by_mpn.get(mpn)
+
+        if target_idx is None:
+            continue
+
+        target = rows[target_idx]
+        merged_this_row = False
+
+        # If the matched BOM row has blank designator (common when show_name: false),
+        # carry over the explicit designator from the photo helper row.
+        if designator and not (target.get("Designators") or "").strip():
+            target["Designators"] = designator
+            changed = True
+            merged_this_row = True
+
+        if not (target.get(photo_col) or "").strip():
+            target[photo_col] = row.get(photo_col) or ""
+            changed = True
+            merged_this_row = True
+
+        if merged_this_row:
+            remove_indexes.add(idx)
+
+    if not changed:
+        return False
+
+    kept_rows = [row for idx, row in enumerate(rows) if idx not in remove_indexes]
+
+    with tsv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t", lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(kept_rows)
+    return True
+
+
+def merge_photo_rows_in_html(html_path: Path) -> bool:
+    if not html_path.exists():
+        return False
+    content = html_path.read_text(encoding="utf-8")
+
+    table_pattern = re.compile(
+        r'(<table class="bom">\s*)(.*?)(\s*</table>)',
+        re.DOTALL,
+    )
+    table_match = table_pattern.search(content)
+    if not table_match:
+        return False
+
+    table_body = table_match.group(2)
+    row_pattern_all = re.compile(r"<tr>.*?</tr>", re.DOTALL)
+    row_pattern_data = re.compile(r"<tr>\s*(?:<td class=\"[^\"]+\">.*?</td>\s*)+</tr>", re.DOTALL)
+    desc_pattern = re.compile(r'<td class="bom_col_description">(.*?)</td>', re.DOTALL)
+    desig_pattern = re.compile(r'<td class="bom_col_designators">(.*?)</td>', re.DOTALL)
+    spn_pattern = re.compile(r'<td class="bom_col_spn">(.*?)</td>', re.DOTALL)
+    mpn_pattern = re.compile(r'<td class="bom_col_mpn">(.*?)</td>', re.DOTALL)
+
+    all_rows = [m.group(0) for m in row_pattern_all.finditer(table_body)]
+    data_row_indexes = [i for i, r in enumerate(all_rows) if row_pattern_data.fullmatch(r)]
+    if not data_row_indexes:
+        return False
+
+    parsed = []
+    for row_idx in data_row_indexes:
+        row_html = all_rows[row_idx]
+        desc_m = desc_pattern.search(row_html)
+        desig_m = desig_pattern.search(row_html)
+        spn_m = spn_pattern.search(row_html)
+        mpn_m = mpn_pattern.search(row_html)
+        parsed.append((row_idx, row_html, desc_m, desig_m, spn_m, mpn_m))
+
+    remove_idx: set[int] = set()
+    changed = False
+
+    for i, (_, row_html, desc_m, desig_m, spn_m, mpn_m) in enumerate(parsed):
+        if not (desc_m and desig_m and spn_m):
+            continue
+
+        description = re.sub(r"<.*?>", "", desc_m.group(1)).strip().lower()
+        designator = re.sub(r"<.*?>", "", desig_m.group(1)).strip()
+        spn_inner = spn_m.group(1).strip()
+        mpn = re.sub(r"<.*?>", "", (mpn_m.group(1) if mpn_m else "")).strip()
+
+        if not (spn_inner and "photo" in description):
+            continue
+
+        target = None
+        for j, (_, t_row_html, t_desc, t_desig, t_spn, t_mpn) in enumerate(parsed):
+            if i == j:
+                continue
+            if not (t_desc and t_desig and t_spn):
+                continue
+            t_description = re.sub(r"<.*?>", "", t_desc.group(1)).strip().lower()
+            t_designator = re.sub(r"<.*?>", "", t_desig.group(1)).strip()
+            t_spn_inner = t_spn.group(1).strip()
+            t_mpn = re.sub(r"<.*?>", "", (t_mpn.group(1) if t_mpn else "")).strip()
+            same_designator = bool(designator) and (t_designator == designator)
+            same_mpn = bool(mpn) and (t_mpn == mpn)
+            if (same_designator or same_mpn) and "photo" not in t_description and not t_spn_inner:
+                target = (j, t_row_html)
+                break
+
+        if target is None:
+            continue
+
+        j, t_row_html = target
+        merged_this_row = False
+        updated_target = t_row_html
+        if not t_spn_inner:
+            next_target = re.sub(
+                r'(<td class="bom_col_spn">)\s*(.*?)\s*(</td>)',
+                rf"\1{spn_inner}\3",
+                t_row_html,
+                count=1,
+                flags=re.DOTALL,
+            )
+            if next_target != updated_target:
+                updated_target = next_target
+                merged_this_row = True
+        # Backfill blank designator on target row when helper row has one.
+        if designator:
+            desig_target_m = desig_pattern.search(updated_target)
+            if desig_target_m:
+                t_designator_inner = re.sub(r"<.*?>", "", desig_target_m.group(1)).strip()
+                if not t_designator_inner:
+                    next_target = re.sub(
+                        r'(<td class="bom_col_designators">)\s*(.*?)\s*(</td>)',
+                        rf"\1{designator}\3",
+                        updated_target,
+                        count=1,
+                        flags=re.DOTALL,
+                    )
+                    if next_target != updated_target:
+                        updated_target = next_target
+                        merged_this_row = True
+        if not merged_this_row:
+            continue
+        parsed[j] = (
+            parsed[j][0],
+            updated_target,
+            parsed[j][2],
+            parsed[j][3],
+            parsed[j][4],
+            parsed[j][5],
+        )
+        remove_idx.add(i)
+        changed = True
+
+    if not changed:
+        return False
+
+    for idx, (row_idx, row_html, _, _, _, _) in enumerate(parsed):
+        if idx in remove_idx:
+            all_rows[row_idx] = ""
+        else:
+            all_rows[row_idx] = row_html
+
+    new_table_body = "\n".join(r for r in all_rows if r)
+    content = (
+        content[: table_match.start(2)]
+        + new_table_body
+        + content[table_match.end(2) :]
+    )
+
+    html_path.write_text(content, encoding="utf-8")
+    return True
+
+
+def rename_header_in_tsv(tsv_path: Path) -> bool:
+    if not tsv_path.exists():
+        return False
+    lines = tsv_path.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        return False
+
+    cols = lines[0].split("\t")
+    changed = False
+    cols_new = []
+    for c in cols:
+        if c == PHOTO_HEADER_FROM:
+            cols_new.append(PHOTO_HEADER_TO)
+            changed = True
+        else:
+            cols_new.append(c)
+
+    if changed:
+        lines[0] = "\t".join(cols_new)
+        tsv_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return changed
+
+
+def rename_header_in_html(html_path: Path) -> bool:
+    if not html_path.exists():
+        return False
+    content = html_path.read_text(encoding="utf-8")
+
+    # Primary target: WireViz BOM header cell for the SPN column.
+    updated = re.sub(
+        r'(<th\s+class="bom_col_spn">)\s*SPN\s*(</th>)',
+        rf"\1{PHOTO_HEADER_TO}\2",
+        content,
+        flags=re.IGNORECASE,
+    )
+
+    # Fallback: plain header text if class changes in a future template.
+    if updated == content:
+        updated = re.sub(
+            r"(<th[^>]*>)\s*SPN\s*(</th>)",
+            rf"\1{PHOTO_HEADER_TO}\2",
+            content,
+            flags=re.IGNORECASE,
+        )
+
+    changed = updated != content
+    if changed:
+        html_path.write_text(updated, encoding="utf-8")
+    return changed
+
+
+def _normalize_img_src_path(src: str, from_dir: Path, out_dir: Path) -> str:
+    src = src.strip()
+    if (
+        not src
+        or "://" in src
+        or src.startswith("data:")
+        or src.startswith("/")
+        or src.startswith("#")
+    ):
+        return src
+
+    candidate = (from_dir / src).resolve()
+    if not candidate.exists():
+        return src
+
+    try:
+        rel = Path(relpath(candidate, out_dir.resolve())).as_posix()
+    except Exception:
+        return src
+    return rel
+
+
+def rewrite_relative_image_paths(path: Path, source_dir: Path, output_dir: Path) -> bool:
+    """Rewrite <img src=\"...\"> paths so they stay valid from output_dir."""
+    if not path.exists():
+        return False
+    content = path.read_text(encoding="utf-8")
+
+    changed = False
+
+    def repl_double(m: re.Match[str]) -> str:
+        nonlocal changed
+        orig = m.group(2)
+        new = _normalize_img_src_path(orig, source_dir, output_dir)
+        if new != orig:
+            changed = True
+        return f'{m.group(1)}{new}{m.group(3)}'
+
+    def repl_single(m: re.Match[str]) -> str:
+        nonlocal changed
+        orig = m.group(2)
+        new = _normalize_img_src_path(orig, source_dir, output_dir)
+        if new != orig:
+            changed = True
+        return f"{m.group(1)}{new}{m.group(3)}"
+
+    updated = re.sub(r'(<img\b[^>]*\bsrc=")([^"]+)(")', repl_double, content, flags=re.IGNORECASE)
+    updated = re.sub(r"(<img\b[^>]*\bsrc=')([^']+)(')", repl_single, updated, flags=re.IGNORECASE)
+
+    if changed and updated != content:
+        path.write_text(updated, encoding="utf-8")
+    return changed
+
+
+def detect_notes_overflow_risk(yaml_data: dict) -> str | None:
+    """Return a lightweight layout-risk warning for notes panel overflow."""
+    metadata = yaml_data.get("metadata", {})
+    if not isinstance(metadata, dict):
+        return None
+
+    notes_raw = metadata.get("notes")
+    notes = str(notes_raw) if isinstance(notes_raw, (str, int, float)) else ""
+    notes_lines = [ln for ln in notes.splitlines() if ln.strip()]
+
+    has_strip_detail = bool(str(metadata.get("strip_detail_image", "")).strip())
+
+    # Conservative heuristic: strip detail plus substantial notes commonly overflows.
+    if has_strip_detail and len(notes_lines) >= 9:
+        return (
+            "Layout warning: notes panel may overflow (strip detail image is enabled and "
+            f"notes has {len(notes_lines)} non-empty lines). "
+            "If you see a scrollbar, try one: increase metadata.notes_width, reduce "
+            "strip detail image max-height in engineering-sheet.html (#strip-detail-image), "
+            "or shorten metadata.notes text."
+        )
+    if len(notes_lines) >= 13:
+        return (
+            "Layout warning: notes panel may overflow (notes has "
+            f"{len(notes_lines)} non-empty lines). "
+            "If you see a scrollbar, try increasing metadata.notes_width or shortening notes."
+        )
+    return None
+
+
+def main() -> None:
+    ensure_runtime_dependencies()
+    script_args, passthrough = split_args(sys.argv[1:])
+    yaml_path = resolve_yaml(script_args)
+    yaml_data = load_yaml_data(yaml_path)
+    output_dir, output_name = resolve_output_paths(yaml_path, passthrough)
+    sheetsize = resolve_sheetsize(yaml_data)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    cmd = wireviz_command_with_output(yaml_path, passthrough, output_dir)
+
+    print(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+    base = output_dir / output_name
+    html_path = base.with_suffix(".html")
+    pdf_path = base.with_suffix(".pdf")
+    tsv_path = Path(f"{base}.bom.tsv")
+
+    merged_tsv = merge_photo_rows_in_tsv(tsv_path)
+    merged_html = merge_photo_rows_in_html(html_path)
+    html_changed = rename_header_in_html(html_path)
+    tsv_changed = rename_header_in_tsv(tsv_path)
+    html_img_paths = rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
+    tsv_img_paths = rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
+    pdf_generated, pdf_note = generate_pdf(html_path, pdf_path, sheetsize)
+
+    print("Generated outputs:")
+    html_notes = []
+    if merged_html:
+        html_notes.append("photo row merged")
+    if html_changed:
+        html_notes.append("header normalized")
+    if html_img_paths:
+        html_notes.append("image paths normalized")
+    print(f"  {base.with_suffix('.html')}" + (f" ({', '.join(html_notes)})" if html_notes else ""))
+    print(f"  {base.with_suffix('.svg')}")
+    print(f"  {base.with_suffix('.png')}")
+    if pdf_generated:
+        print(f"  {base.with_suffix('.pdf')} (single-page via {pdf_note})")
+    else:
+        print(f"  {base.with_suffix('.pdf')} (not generated: {pdf_note})")
+        note_lc = (pdf_note or "").lower()
+        print("  PDF setup: install one working engine, then rebuild.")
+        if "cannot load library" in note_lc or "libgobject" in note_lc:
+            print("    WeasyPrint is installed but missing native GTK/Pango runtime on Windows.")
+            print("    Easiest fix: winget install --id wkhtmltopdf.wkhtmltox --exact")
+        elif "no module named 'weasyprint'" in note_lc:
+            print(f"    {sys.executable} -m pip install weasyprint")
+            print("    or (Windows) winget install --id wkhtmltopdf.wkhtmltox --exact")
+        else:
+            print("    (Windows) winget install --id wkhtmltopdf.wkhtmltox --exact")
+            print(f"    or {sys.executable} -m pip install weasyprint")
+    tsv_notes = []
+    if merged_tsv:
+        tsv_notes.append("photo row merged")
+    if tsv_changed:
+        tsv_notes.append("header normalized")
+    if tsv_img_paths:
+        tsv_notes.append("image paths normalized")
+    print(f"  {base}.bom.tsv" + (f" ({', '.join(tsv_notes)})" if tsv_notes else ""))
+    print("Note: SPN is relabeled as Product Photo in HTML/TSV. SVG/PNG are diagram outputs.")
+    overflow_warning = detect_notes_overflow_risk(yaml_data)
+    if overflow_warning:
+        print(f"Warning: {overflow_warning}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="generator" content="<!-- %generator% -->">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><!-- %title% --></title>
+  <style>
+    :root {
+      --line: #1a1a1a;
+      --paper: #ffffff;
+      --panel: #f7f7f7;
+      --text: #111111;
+      --muted: #555555;
+      --notes-width: 86mm;
+      --notes-min-width: 56mm;
+      --bom-height: 46mm;
+      --bom-min-height: 34mm;
+      --bom-max-height: 72mm;
+      --drawing-min-height: 90mm;
+      --drawing-min-width: 180mm;
+      --company-logo-max-width: 26mm;
+      --company-logo-max-height: 10mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 10mm;
+      font-family: <!-- %fontname% -->;
+      background: <!-- %bgcolor% -->;
+      color: var(--text);
+    }
+
+    #sheet {
+      position: relative;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .A4, .sheetsize_default {
+      width: 277mm;
+      height: 190mm;
+    }
+
+    .LETTER, .Letter {
+      width: 259.4mm;
+      height: 195.9mm;
+    }
+
+    .LEGAL, .Legal {
+      width: 335.6mm;
+      height: 195.9mm;
+    }
+
+    .TABLOID, .Tabloid {
+      width: 406.4mm;
+      height: 259.4mm;
+    }
+
+    .A3 {
+      width: 400mm;
+      height: 277mm;
+    }
+
+    .A2 {
+      width: 564mm;
+      height: 400mm;
+    }
+
+    #work-area {
+      position: absolute;
+      top: 6mm;
+      left: 6mm;
+      right: 6mm;
+      bottom: 30mm;
+      display: grid;
+      grid-template-columns: 1fr var(--notes-width);
+      grid-template-rows: 1fr clamp(var(--bom-min-height), var(--bom-height), var(--bom-max-height));
+      gap: 4mm;
+    }
+
+    #diagram-panel,
+    #notes-panel,
+    #bom-panel {
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    #diagram-panel {
+      grid-column: 1;
+      grid-row: 1;
+      padding: 3mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #diagram svg,
+    #diagram img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    #diagram {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #notes-panel {
+      grid-column: 2;
+      grid-row: 1;
+      overflow-y: hidden;
+      overflow-x: hidden;
+    }
+
+    .panel-title {
+      margin: 0;
+      padding: 2mm 3mm;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 3.1mm;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    #notes {
+      padding: 2.5mm 3mm;
+      font-size: 2.9mm;
+      color: var(--muted);
+      line-height: 1.35;
+      white-space: normal;
+    }
+
+    #strip-detail-panel {
+      margin: 0 3mm 2mm 3mm;
+      padding: 1.6mm;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    #strip-detail-title {
+      margin: 0 0 1.4mm 0;
+      font-size: 2.8mm;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    #strip-detail-image {
+      display: block;
+      width: 100%;
+      max-height: 30mm;
+      object-fit: contain;
+      border: 1px solid #d9d9d9;
+      background: #fafafa;
+    }
+
+    #strip-detail-caption {
+      margin: 1.4mm 0 0 0;
+      font-size: 2.5mm;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    #bom-panel {
+      grid-column: 1 / span 2;
+      grid-row: 2;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    #bom {
+      overflow: auto;
+      min-height: 0;
+    }
+
+    #bom table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 2.7mm;
+    }
+
+    #bom table, #bom th, #bom td {
+      border: 1px solid var(--line);
+    }
+
+    #bom th, #bom td {
+      padding: 1.4mm 1.6mm;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    #bom .bom_col_id,
+    #bom .bom_col_qty,
+    #bom .bom_col_unit {
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    #bom th.bom_col_spn,
+    #bom td.bom_col_spn {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    #bom td.bom_col_spn img {
+      display: block;
+      margin: 0 auto;
+      max-width: 28mm;
+      max-height: 16mm;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    #title-block {
+      position: absolute;
+      left: 6mm;
+      right: 6mm;
+      bottom: 6mm;
+      height: 20mm;
+      border: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 40mm 22mm;
+    }
+
+    #doc-meta {
+      display: grid;
+      grid-template-rows: auto auto auto;
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      padding: 0.65mm 2.6mm;
+      border-bottom: 1px solid var(--line);
+      min-height: 0;
+    }
+
+    .meta-row:last-child {
+      border-bottom: 0;
+    }
+
+    .meta-label {
+      font-size: 1.9mm;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .meta-value {
+      font-size: 2.35mm;
+      font-weight: 600;
+      line-height: 1.2;
+      min-width: 0;
+    }
+
+    .meta-value.path {
+      font-size: 1.95mm;
+      font-weight: 500;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #meta-title .meta-value {
+      font-size: 3.1mm;
+      line-height: 1.15;
+    }
+
+    #company-panel {
+      border-left: 1px solid var(--line);
+      padding: 0.9mm 2.2mm;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 1.4mm 2mm;
+    }
+
+    #company-block {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    #company {
+      display: block;
+      font-weight: 600;
+      font-size: 2.9mm;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #company-address-line1,
+    #company-address-line2,
+    #company-phone,
+    #company-address {
+      display: block;
+      margin-top: 0.12mm;
+      font-size: 2.1mm;
+      line-height: 1.16;
+      color: var(--muted);
+      white-space: normal;
+    }
+
+    #company-address-line1:empty,
+    #company-address-line2:empty,
+    #company-phone:empty,
+    #company-address:empty {
+      display: none;
+    }
+
+    #logo-panel {
+      border-left: 1px solid var(--line);
+      padding: 0.9mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #company-logo {
+      display: block;
+      max-width: 20mm;
+      max-height: 16mm;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+
+    #company-logo[src=""] {
+      display: none;
+    }
+
+    @media print {
+      html, body {
+        width: 100%;
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #sheet {
+        margin: 0 auto;
+      }
+      #notes-panel,
+      #bom {
+        overflow: visible;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div
+    id="sheet"
+    class="<!-- %template_sheetsize% -->"
+    data-bom-height-mode="<!-- %bom_height_mode% -->"
+    data-height-priority="<!-- %height_priority% -->"
+    data-width-priority="<!-- %width_priority% -->"
+    style="
+      --notes-width: <!-- %notes_width% -->;
+      --notes-min-width: <!-- %notes_min_width% -->;
+      --bom-height: <!-- %bom_height% -->;
+      --bom-min-height: <!-- %bom_min_height% -->;
+      --bom-max-height: <!-- %bom_max_height% -->;
+      --drawing-min-height: <!-- %drawing_min_height% -->;
+      --drawing-min-width: <!-- %drawing_min_width% -->;
+      --company-logo-max-width: <!-- %company_logo_max_width% -->;
+      --company-logo-max-height: <!-- %company_logo_max_height% -->;
+    "
+  >
+    <div id="work-area">
+      <section id="diagram-panel">
+        <div id="diagram"><!-- %diagram% --></div>
+      </section>
+
+      <section id="notes-panel">
+        <h2 class="panel-title">Notes</h2>
+        <div id="notes"><!-- %notes% --></div>
+        <section id="strip-detail-panel">
+          <h3 id="strip-detail-title"><!-- %strip_detail_title% --></h3>
+          <img
+            id="strip-detail-image"
+            src="<!-- %strip_detail_image% -->"
+            alt="<!-- %strip_detail_alt% -->"
+          />
+          <p id="strip-detail-caption"><!-- %strip_detail_caption% --></p>
+        </section>
+      </section>
+
+      <section id="bom-panel">
+        <h2 class="panel-title">Bill of Materials</h2>
+        <div id="bom"><!-- %bom% --></div>
+      </section>
+    </div>
+
+    <footer id="title-block">
+      <div id="doc-meta">
+        <div class="meta-row" id="meta-title">
+          <span class="meta-label">Title</span>
+          <span class="meta-value"><!-- %title% --> - <!-- %description% --></span>
+        </div>
+        <div class="meta-row" id="meta-id">
+          <span class="meta-label">Size</span>
+          <span class="meta-value"><!-- %template_sheetsize% --></span>
+          <span class="meta-label">Number</span>
+          <span class="meta-value"><!-- %drawing_no% --></span>
+          <span class="meta-label">Revision</span>
+          <span class="meta-value"><!-- %revision% --></span>
+          <span class="meta-label">Date</span>
+          <span class="meta-value"><!-- %date% --></span>
+          <span class="meta-label">Time</span>
+          <span class="meta-value" id="meta-time"><!-- %time% --></span>
+        </div>
+        <div class="meta-row" id="meta-file">
+          <span class="meta-label">File</span>
+          <span class="meta-value path"><!-- %filename% --></span>
+        </div>
+      </div>
+
+      <div id="company-panel">
+        <span id="company-block">
+          <span id="company"><!-- %company% --></span>
+          <span id="company-address-line1"><!-- %company_address_line1% --></span>
+          <span id="company-address-line2"><!-- %company_address_line2% --></span>
+          <span id="company-phone"><!-- %company_phone% --></span>
+          <span id="company-address"><!-- %company_address% --></span>
+        </span>
+      </div>
+
+      <div id="logo-panel">
+        <img id="company-logo" src="<!-- %company_logo% -->" alt="Company logo" />
+      </div>
+    </footer>
+  </div>
+  <script>
+    (function () {
+      const sheet = document.getElementById("sheet");
+      const workArea = document.getElementById("work-area");
+      const bomPanel = document.getElementById("bom-panel");
+      const notesPanel = document.getElementById("notes-panel");
+      const stripDetailPanel = document.getElementById("strip-detail-panel");
+      const stripDetailImage = document.getElementById("strip-detail-image");
+      const metaTime = document.getElementById("meta-time");
+      if (!sheet || !workArea || !bomPanel) return;
+
+      if (metaTime) {
+        const t = (metaTime.textContent || "").trim();
+        if (!t || /%[a-z_]+%/i.test(t)) {
+          const now = new Date();
+          metaTime.textContent = now.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+      }
+
+      const imageSrc = (stripDetailImage?.getAttribute("src") || "").trim();
+      const missingDetailImage =
+        !imageSrc ||
+        imageSrc.includes("%strip_detail_image%") ||
+        imageSrc.includes("<!--");
+      if (stripDetailPanel && missingDetailImage) {
+        stripDetailPanel.style.display = "none";
+      }
+
+      const cleanMode = (raw, fallback) => {
+        const v = (raw || "").trim().toLowerCase();
+        return v.includes("%") || v === "" ? fallback : v;
+      };
+      const modeRaw = (sheet.dataset.bomHeightMode || "").trim().toLowerCase();
+      const mode = cleanMode(modeRaw, "fixed");
+      const heightPriority = cleanMode(sheet.dataset.heightPriority, "drawing");
+      const widthPriority = cleanMode(sheet.dataset.widthPriority, "notes");
+
+      const toPx = (value, axisSizePx) => {
+        const v = (value || "").trim();
+        if (!v) return 0;
+        if (v.endsWith("%")) return (parseFloat(v) / 100) * axisSizePx;
+        const probe = document.createElement("div");
+        probe.style.position = "absolute";
+        probe.style.visibility = "hidden";
+        probe.style.height = v;
+        workArea.appendChild(probe);
+        const px = probe.getBoundingClientRect().height;
+        probe.remove();
+        return px;
+      };
+
+      const recalc = () => {
+        const style = getComputedStyle(sheet);
+        const areaStyle = getComputedStyle(workArea);
+        const areaBox = workArea.getBoundingClientRect();
+        const areaHeight = areaBox.height;
+        const areaWidth = areaBox.width;
+
+        const colGap = toPx(areaStyle.columnGap, areaWidth);
+        const rowGap = toPx(areaStyle.rowGap, areaHeight);
+
+        const notesDesiredPx = toPx(style.getPropertyValue("--notes-width"), areaWidth);
+        const notesMinPx = toPx(style.getPropertyValue("--notes-min-width"), areaWidth);
+        const drawingMinWidthPx = toPx(style.getPropertyValue("--drawing-min-width"), areaWidth);
+
+        if (widthPriority === "drawing") {
+          const maxNotesByDrawing = Math.max(
+            notesMinPx,
+            areaWidth - colGap - drawingMinWidthPx
+          );
+          const notesTarget = Math.min(
+            maxNotesByDrawing,
+            Math.max(notesMinPx, notesDesiredPx)
+          );
+          sheet.style.setProperty("--notes-width", `${notesTarget}px`);
+        } else {
+          const notesTarget = Math.max(notesMinPx, notesDesiredPx);
+          sheet.style.setProperty("--notes-width", `${notesTarget}px`);
+        }
+
+        if (mode !== "auto") return;
+
+        const panelTitle = bomPanel.querySelector(".panel-title");
+        const bomTable = bomPanel.querySelector("table");
+        if (!panelTitle || !bomTable) return;
+
+        const minPx = toPx(style.getPropertyValue("--bom-min-height"), areaHeight);
+        const maxPx = toPx(style.getPropertyValue("--bom-max-height"), areaHeight);
+        const drawingMinPx = toPx(style.getPropertyValue("--drawing-min-height"), areaHeight);
+        const contentNeeded =
+          panelTitle.getBoundingClientRect().height + bomTable.scrollHeight + 4;
+
+        let effectiveMax = maxPx;
+        if (heightPriority === "drawing") {
+          const maxByDrawing = Math.max(minPx, areaHeight - rowGap - drawingMinPx);
+          effectiveMax = Math.min(maxPx, maxByDrawing);
+        }
+        effectiveMax = Math.max(minPx, effectiveMax);
+
+        const targetPx = Math.min(effectiveMax, Math.max(minPx, contentNeeded));
+        sheet.style.setProperty("--bom-height", `${targetPx}px`);
+
+        if (notesPanel) {
+          const needsScroll = notesPanel.scrollHeight > notesPanel.clientHeight + 1;
+          notesPanel.style.overflowY = needsScroll ? "auto" : "hidden";
+        }
+      };
+
+      recalc();
+      requestAnimationFrame(recalc);
+      setTimeout(recalc, 200);
+      setTimeout(recalc, 700);
+      window.addEventListener("load", recalc);
+
+      bomPanel.querySelectorAll("img").forEach((img) => {
+        if (img.complete) return;
+        img.addEventListener("load", recalc, { once: true });
+        img.addEventListener("error", recalc, { once: true });
+      });
+
+      if (stripDetailImage && !missingDetailImage && !stripDetailImage.complete) {
+        stripDetailImage.addEventListener("load", recalc, { once: true });
+        stripDetailImage.addEventListener("error", recalc, { once: true });
+      }
+    })();
+  </script>
+</body>
+</html>

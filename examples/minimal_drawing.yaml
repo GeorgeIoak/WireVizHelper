@@ -1,0 +1,42 @@
+connectors:
+  P1:
+    type: Generic Plug
+    subtype: plug
+    pinlabels: [1, 2, G]
+    pincolors: [BK, WH, GN]
+
+  P2:
+    type: Generic Receptacle
+    subtype: receptacle
+    pinlabels: [1, 2, G]
+    pincolors: [BK, WH, GN]
+
+cables:
+  C1:
+    type: 3C Cable
+    length: 2 m
+    gauge: 1.5 mm2
+    wirecount: 3
+    colors: [BK, WH, GN]
+    wirelabels: [1, 2, G]
+
+connections:
+  -
+    - P1: [1, 2, G]
+    - C1: [1, 2, G]
+    - P2: [1, 2, G]
+
+metadata:
+  title: Minimal Example Cable
+  template:
+    name: engineering-sheet
+    sheetsize: LETTER
+  drawing_no: EX-MIN-001
+  revision: A0
+  date: "2026-02-07"
+  author: Example User
+  company: Example Company
+  description: Minimal example for WireViz Helper
+  notes: |
+    This is a minimal example.
+    Duplicate this file into your project and edit fields.
