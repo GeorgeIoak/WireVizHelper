@@ -36,17 +36,34 @@ dot -V
 ```
 
 If `dot -V` still fails, ensure Graphviz is on your PATH.
+After a permanent change, open a new terminal to pick up the updated PATH.
 
 Windows PATH quick fix (current session):
 
 ```cmd
 set PATH=%PATH%;C:\Program Files\Graphviz\bin
+dot -V
 ```
 
-Windows PATH permanent (user):
+PowerShell quick fix (current session):
+
+```powershell
+$env:Path = "$env:Path;C:\Program Files\Graphviz\bin"
+dot -V
+```
+
+PowerShell PATH permanent (user):
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\Graphviz\bin", "User")
+dot -V
+```
+
+cmd.exe PATH permanent (user):
 
 ```cmd
 setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
+dot -V
 ```
 
 ## Python Dependency Install Fails
