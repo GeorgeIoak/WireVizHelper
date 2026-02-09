@@ -1,34 +1,32 @@
-# WireVizHelper
+# WireVizHelper / WireViz Project Assistant
 
 WireVizHelper extends WireViz to produce single-file engineering sheets and richer BOM output while keeping YAML as the source of truth.
 
+The **WireViz Project Assistant** adds a graphical interface (GUI) and automated build tooling to make project creation and diagram generation easier for both technical and non‑technical users.
+
+---
+
 ## What It Does
 
+### Core WireVizHelper Features
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
 - Attempts single-page PDF generation from the rendered HTML (`weasyprint`, then `wkhtmltopdf`).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
-## Prerequisites
+### WireViz Project Assistant (GUI)
+- Create new WireViz project folders with a simple dialog.
+- Build existing projects without using the command line.
+- Optional automatic opening of the output folder after build.
+- Works as a standalone EXE (simple or fully portable).
 
-Install once per machine:
+---
 
-1. `Python 3.x`
-2. `Graphviz` (required by WireViz). On Windows, the installer does **not** add `dot` to PATH - add `C:\Program Files\Graphviz\bin` manually.
-3. Optional PDF engine:
-   - Preferred: `WeasyPrint` (pip package; native libs needed on macOS)
-   - Fallback: `wkhtmltopdf` CLI
+## Downloads
 
-### Install Commands
+You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 
-```powershell
-# Windows (PowerShell)
-winget install Graphviz.Graphviz
-winget install --id wkhtmltopdf.wkhtmltox --exact  # Optional fallback
-```
-
-Windows PATH note (Graphviz): add `C:\Program Files\Graphviz\bin` to your PATH, then open a new terminal and run `dot -V`.
-After a permanent change, open a new terminal to pick up the new PATH.
+###a permanent change, open a new terminal to pick up the new PATH.
 
 PowerShell (current session):
 
