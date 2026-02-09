@@ -414,6 +414,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-globals().get("_WIREVIZ_GUI_MAIN_RAN"):
-        globals()["_WIREVIZ_GUI_MAIN_RAN"] = True
-        main()
