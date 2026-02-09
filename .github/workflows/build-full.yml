@@ -1,0 +1,79 @@
+name: Build Full Portable EXE
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [ Package ]
+    tags: [ "v*" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Create vendor directory
+        run: |
+          New-Item -ItemType Directory -Force -Path vendor | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/graphviz | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/wkhtmltopdf | Out-Null
+
+      - name: Install Graphviz and wkhtmltopdf
+        run: |
+          choco install graphviz wkhtmltopdf -y --no-progress
+
+      - name: Copy runtime binaries into vendor
+        shell: pwsh
+        run: |
+          $graphvizBin = Join-Path $env:ProgramFiles "Graphviz\\bin"
+          if (!(Test-Path $graphvizBin)) {
+            $graphvizBin = Join-Path ${env:ProgramFiles(x86)} "Graphviz\\bin"
+          }
+          if (!(Test-Path $graphvizBin)) {
+            throw "Graphviz bin not found after install"
+          }
+          Copy-Item -Recurse -Force $graphvizBin vendor/graphviz/
+
+          $wkhtmlBin = Join-Path $env:ProgramFiles "wkhtmltopdf\\bin"
+          if (!(Test-Path $wkhtmlBin)) {
+            $wkhtmlBin = Join-Path ${env:ProgramFiles(x86)} "wkhtmltopdf\\bin"
+          }
+          if (!(Test-Path $wkhtmlBin)) {
+            throw "wkhtmltopdf bin not found after install"
+          }
+          Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
+
+      - name: Build full EXE
+        run: python -m PyInstaller WireVizProjectAssistant.spec
+
+      - name: Smoke test packaged full EXE
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+
+      - name: List smoke outputs (full)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path .\ci-smoke-full -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-outputs-full
+          path: ci-smoke-full/**
+
+      - name: Archive portable build
+        shell: pwsh
+        run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizProjectAssistant-full.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WireVizProjectAssistant-full
+          path: dist/WireVizProjectAssistant-full.zip

@@ -1,0 +1,74 @@
+name: Build Simple EXE
+
+"on":
+  workflow_dispatch:
+  push:
+    branches: [ main, Package ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Create vendor directory
+        run: |
+          New-Item -ItemType Directory -Force -Path vendor | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/graphviz | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/wkhtmltopdf | Out-Null
+
+      - name: Install Graphviz and wkhtmltopdf
+        run: |
+          choco install graphviz wkhtmltopdf -y --no-progress
+
+      - name: Copy runtime binaries into vendor
+        shell: pwsh
+        run: |
+          $graphvizBin = Join-Path $env:ProgramFiles "Graphviz\\bin"
+          if (!(Test-Path $graphvizBin)) {
+            $graphvizBin = Join-Path ${env:ProgramFiles(x86)} "Graphviz\\bin"
+          }
+          if (!(Test-Path $graphvizBin)) {
+            throw "Graphviz bin not found after install"
+          }
+          Copy-Item -Recurse -Force $graphvizBin vendor/graphviz/
+
+          $wkhtmlBin = Join-Path $env:ProgramFiles "wkhtmltopdf\\bin"
+          if (!(Test-Path $wkhtmlBin)) {
+            $wkhtmlBin = Join-Path ${env:ProgramFiles(x86)} "wkhtmltopdf\\bin"
+          }
+          if (!(Test-Path $wkhtmlBin)) {
+            throw "wkhtmltopdf bin not found after install"
+          }
+          Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
+
+      - name: Build simple EXE
+        run: python -m PyInstaller WireVizProjectAssistant.simple.spec
+
+      - name: Smoke test packaged simple EXE
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+
+      - name: List smoke outputs (simple)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path .\ci-smoke-simple -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-outputs-simple
+          path: ci-smoke-simple/**
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WireVizProjectAssistant-simple
+          path: dist/WireVizProjectAssistant-simple.exe

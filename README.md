@@ -1,64 +1,104 @@
-# WireVizHelper
+# WireVizHelper / WireViz Project Assistant
 
 WireVizHelper extends WireViz to produce single-file engineering sheets and richer BOM output while keeping YAML as the source of truth.
 
+The **WireViz Project Assistant** adds a graphical interface (GUI) and automated build tooling to make project creation and diagram generation easier for both technical and non-technical users.
+
+---
+
 ## What It Does
+
+### Core WireVizHelper Features
 
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
-- Attempts single-page PDF generation from the rendered HTML (`weasyprint`, then `wkhtmltopdf`).
+- Attempts single-page PDF generation from the rendered HTML (`wkhtmltopdf` on Windows, then `weasyprint` fallback).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
-## Prerequisites
+### WireViz Project Assistant (GUI)
 
-Install once per machine:
+- Create new WireViz project folders with a simple dialog.
+- Build existing projects without using the command line.
+- Optional automatic opening of the output folder after build.
+- Works as a standalone EXE (simple or fully portable).
 
-1. `Python 3.x`
-2. `Graphviz` (required by WireViz). On Windows, the installer does **not** add `dot` to PATH - add `C:\Program Files\Graphviz\bin` manually.
-3. Optional PDF engine:
-   - Preferred: `WeasyPrint` (pip package; native libs needed on macOS)
-   - Fallback: `wkhtmltopdf` CLI
+---
 
-### Install Commands
+## Downloads
+
+You can obtain builds from GitHub Actions artifacts or GitHub Releases:
+
+- `WireVizProjectAssistant-full.zip`: portable folder build (EXE + bundled runtime files).
+- `WireVizProjectAssistant-simple.exe`: single-file standalone build.
+
+Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf installs or PATH edits.
+
+## Install And Use (Windows Release)
+
+1. Download either `WireVizProjectAssistant-full.zip` (recommended) or `WireVizProjectAssistant-simple.exe`.
+2. For `full.zip`: extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
+3. Run `WireVizProjectAssistant.exe` from the extracted full folder, or run `WireVizProjectAssistant-simple.exe`.
+4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.
+
+Notes:
+
+- Keep all files together in the extracted `full.zip` folder.
+- On first run, if a required runtime file is missing, the app now shows a startup error dialog.
+
+## Advanced CLI Use (Packaged EXE)
+
+The packaged EXE supports command-line usage for advanced users.
 
 ```powershell
-# Windows (PowerShell)
-winget install Graphviz.Graphviz
-winget install --id wkhtmltopdf.wkhtmltox --exact  # Optional fallback
+# Print installed version
+.\WireVizProjectAssistant.exe --version
+
+# Build from YAML (same pipeline as build.py)
+.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml
+
+# Pass extra WireViz arguments after --
+.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml -- --output-dir .\out --output-name drawing_v2
+
+# Scaffold a new project folder (same behavior as scaffold.py)
+.\WireVizProjectAssistant.exe scaffold --name "Panel Harness A" --dest C:\Work\Drawings
 ```
 
-Windows PATH note (Graphviz): add `C:\Program Files\Graphviz\bin` to your PATH, then open a new terminal and run `dot -V`.
-After a permanent change, open a new terminal to pick up the new PATH.
-
-PowerShell (current session):
+## Local EXE Build (Windows)
 
 ```powershell
-$env:Path = "$env:Path;C:\Program Files\Graphviz\bin"
-dot -V
+pip install -r requirements.txt pyinstaller
 ```
 
-PowerShell (permanent, user):
+Populate `vendor/` with portable binaries (same layout used in CI):
+
+- `vendor/graphviz/bin/dot.exe`
+- `vendor/wkhtmltopdf/bin/wkhtmltopdf.exe`
+
+Then build:
 
 ```powershell
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\Graphviz\bin", "User")
-dot -V
+# full portable folder build
+pyinstaller WireVizProjectAssistant.spec
+
+# single-file standalone build
+pyinstaller WireVizProjectAssistant.simple.spec
 ```
 
-cmd.exe (current session):
+`vendor/graphviz/.gitkeep` and `vendor/wkhtmltopdf/.gitkeep` are placeholders so folder structure is tracked in git.
 
-```cmd
-set PATH=%PATH%;C:\Program Files\Graphviz\bin
-dot -V
+Smoke-test packaged EXEs headlessly (used by CI workflows):
+
+```powershell
+# full portable
+.\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+
+# single-file
+.\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
 ```
 
-cmd.exe (permanent, user):
+## Manual Dependencies (Source/Dev Use)
 
-```cmd
-setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
-dot -V
-```
-
-Windows note: PDF output needs a PDF engine beyond Graphviz. `requirements.txt` installs `weasyprint`, but WeasyPrint may still require native GTK/Pango runtime libraries on Windows. If PDF generation fails, install `wkhtmltopdf` (`winget install --id wkhtmltopdf.wkhtmltox --exact`) and rebuild. This `winget` command works in both PowerShell and `cmd.exe`.
+If you run from source instead of packaged EXEs, install runtime dependencies on your system:
 
 ```bash
 # macOS
@@ -78,6 +118,8 @@ Verify Graphviz:
 ```bash
 dot -V
 ```
+
+GUI dependency note: this project uses `FreeSimpleGUI` (community fork API-compatible with classic PySimpleGUI).
 
 ## Quick Start
 
