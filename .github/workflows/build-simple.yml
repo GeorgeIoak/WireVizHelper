@@ -3,7 +3,7 @@ name: Build Simple EXE
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, Package ]
 
 jobs:
   build:

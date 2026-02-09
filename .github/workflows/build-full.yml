@@ -3,6 +3,7 @@ name: Build Full Portable EXE
 on:
   workflow_dispatch:
   push:
+    branches: [ Package ]
     tags: [ "v*" ]
 
 jobs:
