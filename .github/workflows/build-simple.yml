@@ -21,9 +21,9 @@ jobs:
 
       - name: Create vendor directory
         run: |
-          mkdir vendor
-          mkdir vendor/graphviz
-          mkdir vendor/wkhtmltopdf
+          New-Item -ItemType Directory -Force -Path vendor | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/graphviz | Out-Null
+          New-Item -ItemType Directory -Force -Path vendor/wkhtmltopdf | Out-Null
 
       - name: Download Graphviz portable
         run: |
