@@ -28,12 +28,12 @@ jobs:
 
       - name: Download Graphviz portable
         run: |
-          curl -L -o graphviz.zip https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/10.0.1/graphviz-portable-10.0.1.zip
+          curl.exe -L -o graphviz.zip https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/10.0.1/graphviz-portable-10.0.1.zip
           tar -xf graphviz.zip -C vendor/graphviz --strip-components=1
 
       - name: Download wkhtmltopdf portable
         run: |
-          curl -L -o wkhtml.zip https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox-0.12.6-1.msvc2015-win64.zip
+          curl.exe -L -o wkhtml.zip https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox-0.12.6-1.msvc2015-win64.zip
           tar -xf wkhtml.zip -C vendor/wkhtmltopdf --strip-components=1
 
       - name: Build full EXE
