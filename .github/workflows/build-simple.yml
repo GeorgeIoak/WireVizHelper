@@ -58,6 +58,16 @@ jobs:
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
 
+      - name: List smoke outputs (simple)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path .\ci-smoke-simple -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-outputs-simple
+          path: ci-smoke-simple/**
+
       - uses: actions/upload-artifact@v4
         with:
           name: WireVizProjectAssistant-simple

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import csv
 import os
 import shlex
 import sys
@@ -69,7 +70,7 @@ def run_smoke_test(workdir: Path) -> int:
     build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
     pdf_generated, pdf_note = build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
 
-    required = [html_path, svg_path, png_path, tsv_path]
+    required = [html_path, svg_path, png_path, tsv_path, pdf_path]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         print("Smoke test failed: Missing required outputs:")
@@ -77,8 +78,48 @@ def run_smoke_test(workdir: Path) -> int:
             print(f"  - {p}")
         return 1
 
-    if not pdf_generated or not pdf_path.exists():
+    if not pdf_generated:
         print(f"Smoke test failed: PDF was not generated ({pdf_note})")
+        return 1
+
+    # Verify files are non-empty and contain expected signatures/content.
+    empty = [str(p) for p in required if p.stat().st_size <= 0]
+    if empty:
+        print("Smoke test failed: Empty output files:")
+        for p in empty:
+            print(f"  - {p}")
+        return 1
+
+    svg_head = svg_path.read_text(encoding="utf-8", errors="ignore")[:512].lower()
+    if "<svg" not in svg_head:
+        print(f"Smoke test failed: SVG signature not found in {svg_path}")
+        return 1
+
+    with png_path.open("rb") as f:
+        png_sig = f.read(8)
+    if png_sig != b"\x89PNG\r\n\x1a\n":
+        print(f"Smoke test failed: PNG signature mismatch in {png_path}")
+        return 1
+
+    with pdf_path.open("rb") as f:
+        pdf_sig = f.read(5)
+    if pdf_sig != b"%PDF-":
+        print(f"Smoke test failed: PDF signature mismatch in {pdf_path}")
+        return 1
+
+    html_text = html_path.read_text(encoding="utf-8", errors="ignore")
+    if "Product Photo" not in html_text:
+        print("Smoke test failed: 'Product Photo' header not found in HTML output")
+        return 1
+
+    with tsv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.reader(f, delimiter="\t")
+        header = next(reader, [])
+    if "Product Photo" not in header:
+        print("Smoke test failed: 'Product Photo' header not found in TSV output")
+        return 1
+    if "SPN" in header:
+        print("Smoke test failed: Legacy 'SPN' header still present in TSV output")
         return 1
 
     print("Smoke test passed. Generated:")

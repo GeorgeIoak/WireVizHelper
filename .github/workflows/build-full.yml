@@ -59,6 +59,16 @@ jobs:
         run: |
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
 
+      - name: List smoke outputs (full)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path .\ci-smoke-full -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smoke-outputs-full
+          path: ci-smoke-full/**
+
       - name: Archive portable build
         shell: pwsh
         run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizProjectAssistant-full.zip
