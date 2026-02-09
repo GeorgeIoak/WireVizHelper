@@ -1,6 +1,6 @@
 name: Build Simple EXE
 
-on:
+"on":
   workflow_dispatch:
   push:
     branches: [ main, Package ]

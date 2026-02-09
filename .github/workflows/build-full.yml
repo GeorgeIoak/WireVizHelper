@@ -1,6 +1,6 @@
 name: Build Full Portable EXE
 
-on:
+"on":
   workflow_dispatch:
   push:
     branches: [ Package ]

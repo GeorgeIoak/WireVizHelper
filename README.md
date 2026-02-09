@@ -9,12 +9,14 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 ## What It Does
 
 ### Core WireVizHelper Features
+
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
 - Attempts single-page PDF generation from the rendered HTML (`wkhtmltopdf` on Windows, then `weasyprint` fallback).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
 ### WireViz Project Assistant (GUI)
+
 - Create new WireViz project folders with a simple dialog.
 - Build existing projects without using the command line.
 - Optional automatic opening of the output folder after build.
@@ -39,6 +41,7 @@ Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf inst
 4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.
 
 Notes:
+
 - Keep all files together in the extracted `full.zip` folder.
 - On first run, if a required runtime file is missing, the app now shows a startup error dialog.
 

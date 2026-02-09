@@ -413,6 +413,7 @@ def main():
     win.close()
 
 if __name__ == "__main__":
-    if not globals().get("_WIREVIZ_GUI_MAIN_RAN"):
+    main()
+globals().get("_WIREVIZ_GUI_MAIN_RAN"):
         globals()["_WIREVIZ_GUI_MAIN_RAN"] = True
         main()
