@@ -51,10 +51,10 @@ jobs:
           Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
 
       - name: Build full EXE
-        run: pyinstaller WireVizProjectAssistant.spec
+        run: python -m PyInstaller WireVizProjectAssistant.spec
 
       - name: Build simple EXE
-        run: pyinstaller WireVizProjectAssistant.simple.spec
+        run: python -m PyInstaller WireVizProjectAssistant.simple.spec
 
       - name: Archive portable build
         shell: pwsh

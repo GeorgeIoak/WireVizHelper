@@ -51,7 +51,7 @@ jobs:
           Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
 
       - name: Build simple EXE
-        run: pyinstaller WireVizProjectAssistant.simple.spec
+        run: python -m PyInstaller WireVizProjectAssistant.simple.spec
 
       - uses: actions/upload-artifact@v4
         with:
