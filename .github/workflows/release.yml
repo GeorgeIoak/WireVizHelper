@@ -53,8 +53,18 @@ jobs:
       - name: Build full EXE
         run: python -m PyInstaller WireVizProjectAssistant.spec
 
+      - name: Smoke test packaged full EXE
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+
       - name: Build simple EXE
         run: python -m PyInstaller WireVizProjectAssistant.simple.spec
+
+      - name: Smoke test packaged simple EXE
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
 
       - name: Archive portable build
         shell: pwsh

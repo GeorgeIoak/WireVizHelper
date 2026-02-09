@@ -42,6 +42,24 @@ Notes:
 - Keep all files together in the extracted `full.zip` folder.
 - On first run, if a required runtime file is missing, the app now shows a startup error dialog.
 
+## Advanced CLI Use (Packaged EXE)
+
+The packaged EXE supports command-line usage for advanced users.
+
+```powershell
+# Print installed version
+.\WireVizProjectAssistant.exe --version
+
+# Build from YAML (same pipeline as build.py)
+.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml
+
+# Pass extra WireViz arguments after --
+.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml -- --output-dir .\out --output-name drawing_v2
+
+# Scaffold a new project folder (same behavior as scaffold.py)
+.\WireVizProjectAssistant.exe scaffold --name "Panel Harness A" --dest C:\Work\Drawings
+```
+
 ## Local EXE Build (Windows)
 
 ```powershell
@@ -64,6 +82,16 @@ pyinstaller WireVizProjectAssistant.simple.spec
 ```
 
 `vendor/graphviz/.gitkeep` and `vendor/wkhtmltopdf/.gitkeep` are placeholders so folder structure is tracked in git.
+
+Smoke-test packaged EXEs headlessly (used by CI workflows):
+
+```powershell
+# full portable
+.\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+
+# single-file
+.\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+```
 
 ## Manual Dependencies (Source/Dev Use)
 
@@ -156,4 +184,3 @@ Generated project contents:
 - YAML fields and metadata: [`docs/yaml-options.md`](docs/yaml-options.md)
 - Troubleshooting guide: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - Starter YAML example: [`examples/minimal_drawing.yaml`](examples/minimal_drawing.yaml)
-l_drawing.yaml)

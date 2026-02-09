@@ -53,6 +53,11 @@ jobs:
       - name: Build simple EXE
         run: python -m PyInstaller WireVizProjectAssistant.simple.spec
 
+      - name: Smoke test packaged simple EXE
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+
       - uses: actions/upload-artifact@v4
         with:
           name: WireVizProjectAssistant-simple

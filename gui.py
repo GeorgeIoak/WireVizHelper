@@ -1,19 +1,190 @@
 #!/usr/bin/env python
+import argparse
 import os
 import shlex
+import sys
 from pathlib import Path
-
-try:
-    import FreeSimpleGUI as sg
-except ModuleNotFoundError:
-    import PySimpleGUI as sg
 
 import scaffold
 import build
 from version import __version__
 
 
+def _load_gui_lib():
+    try:
+        import FreeSimpleGUI as _sg
+    except ModuleNotFoundError:
+        import PySimpleGUI as _sg
+    return _sg
+
+
+def run_smoke_test(workdir: Path) -> int:
+    """Headless end-to-end check for packaged runtime in CI."""
+    workdir.mkdir(parents=True, exist_ok=True)
+    class Args:
+        pass
+
+    args = Args()
+    args.name = "Smoke Project"
+    args.dest = str(workdir)
+    args.yaml_name = "drawing.yaml"
+    args.in_place = False
+    args.force = True
+
+    scaffold.ensure_runtime_dependencies()
+    target, project_name = scaffold.resolve_target(args)
+    yaml_name = scaffold._normalize_yaml_name(args.yaml_name)
+    scaffold.ensure_target(target, args.force)
+    scaffold.scaffold_project(target, project_name, yaml_name)
+
+    yaml_path = target / yaml_name
+    if not yaml_path.exists():
+        print(f"Smoke test failed: YAML was not created: {yaml_path}")
+        return 1
+
+    build.ensure_runtime_dependencies()
+    yaml_data = build.load_yaml_data(yaml_path)
+    output_dir, output_name = build.resolve_output_paths(yaml_path, [])
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    result_code, cmd_display = build.run_wireviz(yaml_path, [], output_dir)
+    print(f"Smoke test WireViz command: {cmd_display}")
+    if result_code != 0:
+        print(f"Smoke test failed: WireViz returned {result_code}")
+        return result_code
+
+    base = output_dir / output_name
+    html_path = base.with_suffix(".html")
+    svg_path = base.with_suffix(".svg")
+    png_path = base.with_suffix(".png")
+    tsv_path = Path(f"{base}.bom.tsv")
+    pdf_path = base.with_suffix(".pdf")
+
+    build.merge_photo_rows_in_tsv(tsv_path)
+    build.merge_photo_rows_in_html(html_path)
+    build.rename_header_in_html(html_path)
+    build.rename_header_in_tsv(tsv_path)
+    build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
+    build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
+    pdf_generated, pdf_note = build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+
+    required = [html_path, svg_path, png_path, tsv_path]
+    missing = [str(p) for p in required if not p.exists()]
+    if missing:
+        print("Smoke test failed: Missing required outputs:")
+        for p in missing:
+            print(f"  - {p}")
+        return 1
+
+    if not pdf_generated or not pdf_path.exists():
+        print(f"Smoke test failed: PDF was not generated ({pdf_note})")
+        return 1
+
+    print("Smoke test passed. Generated:")
+    for p in [html_path, svg_path, png_path, tsv_path, pdf_path]:
+        print(f"  - {p}")
+    return 0
+
+
+def parse_args() -> tuple[argparse.Namespace, list[str]]:
+    p = argparse.ArgumentParser(
+        add_help=True,
+        description="WireViz Project Assistant GUI and CLI.",
+    )
+    p.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help="Run a headless end-to-end smoke test and exit.",
+    )
+    p.add_argument(
+        "--workdir",
+        default=".",
+        help="Working directory for --smoke-test artifacts. Default: current directory.",
+    )
+    p.add_argument(
+        "--version",
+        action="store_true",
+        help="Print application version and exit.",
+    )
+
+    sub = p.add_subparsers(dest="command")
+
+    ps = sub.add_parser("scaffold", help="Create a new project folder (CLI mode).")
+    ps.add_argument("--name", help="Project name (required unless --in-place is used).")
+    ps.add_argument(
+        "--dest",
+        default=".",
+        help="Destination parent directory (or target directory with --in-place).",
+    )
+    ps.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Scaffold directly into --dest instead of creating a new subfolder.",
+    )
+    ps.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow writing into a non-empty existing directory.",
+    )
+    ps.add_argument(
+        "--yaml-name",
+        default="drawing.yaml",
+        help="YAML file name to create. Default: drawing.yaml",
+    )
+
+    pb = sub.add_parser("build", help="Build outputs from YAML (CLI mode).")
+    pb.add_argument(
+        "yaml",
+        nargs="?",
+        help="Path to YAML file. Defaults to drawing.yaml in current directory.",
+    )
+
+    return p.parse_known_args()
+
+
+def run_scaffold_cli(args: argparse.Namespace) -> int:
+    try:
+        scaffold.ensure_runtime_dependencies()
+        target, project_name = scaffold.resolve_target(args)
+        yaml_name = scaffold._normalize_yaml_name(args.yaml_name)
+        scaffold.ensure_target(target, args.force)
+        scaffold.scaffold_project(target, project_name, yaml_name)
+        print(f"Created project: {target}")
+        print("Next steps:")
+        print(f"  cd {target}")
+        print(f"  edit {yaml_name}")
+        print(f"  python /path/to/toolkit/build.py {yaml_name}")
+        return 0
+    except ValueError as e:
+        print(f"Error: {e}")
+        return 1
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 1
+
+
+def run_build_cli(yaml_arg: str | None, passthrough: list[str]) -> int:
+    argv = []
+    if yaml_arg:
+        argv.append(yaml_arg)
+    if passthrough and passthrough[0] == "--":
+        passthrough = passthrough[1:]
+    if passthrough:
+        argv.extend(["--", *passthrough])
+
+    old_argv = sys.argv[:]
+    try:
+        sys.argv = ["build.py", *argv]
+        build.main()
+        return 0
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 1
+    finally:
+        sys.argv = old_argv
+
+
 def run_scaffold_gui():
+    sg = _load_gui_lib()
     layout = [
         [sg.Text("Project Name"), sg.Input(key="name")],
         [sg.Text("Destination Folder"), sg.Input(key="dest"), sg.FolderBrowse()],
@@ -59,6 +230,7 @@ def run_scaffold_gui():
 
 
 def run_build_gui():
+    sg = _load_gui_lib()
     layout = [
         [sg.Text("YAML File"), sg.Input(key="yaml"), sg.FileBrowse(file_types=(("YAML", "*.yaml"), ("YAML", "*.yml")))],
         [sg.Text("Extra WireViz Args"), sg.Input(key="extra")],
@@ -137,7 +309,34 @@ def run_build_gui():
 
 
 def main():
+    args, passthrough = parse_args()
+
     build.configure_portable_runtime()
+
+    if args.version:
+        print(f"WireViz Project Assistant {__version__}")
+        raise SystemExit(0)
+
+    if args.smoke_test:
+        workdir = Path(args.workdir).expanduser().resolve()
+        code = run_smoke_test(workdir)
+        raise SystemExit(code)
+
+    if args.command == "scaffold":
+        if passthrough:
+            print(f"Error: unrecognized arguments: {' '.join(passthrough)}")
+            raise SystemExit(2)
+        raise SystemExit(run_scaffold_cli(args))
+
+    if args.command == "build":
+        raise SystemExit(run_build_cli(args.yaml, passthrough))
+
+    if passthrough:
+        print(f"Error: unrecognized arguments: {' '.join(passthrough)}")
+        raise SystemExit(2)
+
+    sg = _load_gui_lib()
+
     if build.is_frozen_app():
         issues = build.validate_runtime_requirements()
         if issues:
@@ -172,6 +371,7 @@ def main():
 
     win.close()
 
-
 if __name__ == "__main__":
-    main()
+    if not globals().get("_WIREVIZ_GUI_MAIN_RAN"):
+        globals()["_WIREVIZ_GUI_MAIN_RAN"] = True
+        main()
