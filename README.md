@@ -31,6 +31,17 @@ You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 
 Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf installs or PATH edits.
 
+## Install And Use (Windows Release)
+
+1. Download either `WireVizProjectAssistant-full.zip` (recommended) or `WireVizProjectAssistant-simple.exe`.
+2. For `full.zip`: extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
+3. Run `WireVizProjectAssistant.exe` from the extracted full folder, or run `WireVizProjectAssistant-simple.exe`.
+4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.
+
+Notes:
+- Keep all files together in the extracted `full.zip` folder.
+- On first run, if a required runtime file is missing, the app now shows a startup error dialog.
+
 ## Local EXE Build (Windows)
 
 ```powershell
@@ -145,3 +156,4 @@ Generated project contents:
 - YAML fields and metadata: [`docs/yaml-options.md`](docs/yaml-options.md)
 - Troubleshooting guide: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - Starter YAML example: [`examples/minimal_drawing.yaml`](examples/minimal_drawing.yaml)
+l_drawing.yaml)
