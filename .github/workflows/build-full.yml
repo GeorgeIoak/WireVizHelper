@@ -26,15 +26,30 @@ jobs:
           New-Item -ItemType Directory -Force -Path vendor/graphviz | Out-Null
           New-Item -ItemType Directory -Force -Path vendor/wkhtmltopdf | Out-Null
 
-      - name: Download Graphviz portable
+      - name: Install Graphviz and wkhtmltopdf
         run: |
-          curl.exe -L -o graphviz.zip https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/10.0.1/graphviz-portable-10.0.1.zip
-          tar -xf graphviz.zip -C vendor/graphviz --strip-components=1
+          choco install graphviz wkhtmltopdf -y --no-progress
 
-      - name: Download wkhtmltopdf portable
+      - name: Copy runtime binaries into vendor
+        shell: pwsh
         run: |
-          curl.exe -L -o wkhtml.zip https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox-0.12.6-1.msvc2015-win64.zip
-          tar -xf wkhtml.zip -C vendor/wkhtmltopdf --strip-components=1
+          $graphvizBin = Join-Path $env:ProgramFiles "Graphviz\\bin"
+          if (!(Test-Path $graphvizBin)) {
+            $graphvizBin = Join-Path ${env:ProgramFiles(x86)} "Graphviz\\bin"
+          }
+          if (!(Test-Path $graphvizBin)) {
+            throw "Graphviz bin not found after install"
+          }
+          Copy-Item -Recurse -Force $graphvizBin vendor/graphviz/
+
+          $wkhtmlBin = Join-Path $env:ProgramFiles "wkhtmltopdf\\bin"
+          if (!(Test-Path $wkhtmlBin)) {
+            $wkhtmlBin = Join-Path ${env:ProgramFiles(x86)} "wkhtmltopdf\\bin"
+          }
+          if (!(Test-Path $wkhtmlBin)) {
+            throw "wkhtmltopdf bin not found after install"
+          }
+          Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
 
       - name: Build full EXE
         run: pyinstaller WireVizProjectAssistant.spec
