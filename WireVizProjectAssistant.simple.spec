@@ -1,4 +1,4 @@
-# WireVizProjectAssistant.spec
+# WireVizProjectAssistant.simple.spec
 
 import os
 from pathlib import Path
@@ -17,6 +17,7 @@ os.environ["PATH"] = (
     str(wkhtml_bin) + os.pathsep +
     os.environ.get("PATH", "")
 )
+
 
 def safe_collect(package: str) -> list[str]:
     try:
@@ -54,15 +55,7 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name="WireVizProjectAssistant",
+    name="WireVizProjectAssistant-simple",
     console=False,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=False,
-    name="WireVizProjectAssistant",
+    onefile=True,
 )

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import PySimpleGUI as sg
 import os
-import subprocess
+import shlex
 from pathlib import Path
 
 import scaffold
@@ -49,6 +49,9 @@ def run_scaffold_gui():
                 return
             except Exception as e:
                 sg.popup_error(f"Error:\n{e}")
+            except SystemExit as e:
+                msg = str(e) if str(e).strip() else "Operation failed."
+                sg.popup_error(f"Error:\n{msg}")
 
 
 def run_build_gui():
@@ -75,7 +78,7 @@ def run_build_gui():
                     sg.popup_error("YAML file not found.")
                     continue
 
-                extra_args = vals["extra"].split() if vals["extra"] else []
+                extra_args = shlex.split(vals["extra"]) if vals["extra"] else []
                 outdir_override = vals["outdir"].strip()
 
                 build.ensure_runtime_dependencies()
@@ -85,19 +88,21 @@ def run_build_gui():
 
                 yaml_path = build.resolve_yaml(script_args)
                 yaml_data = build.load_yaml_data(yaml_path)
+                _, resolved_output_name = build.resolve_output_paths(yaml_path, passthrough)
 
                 if outdir_override:
                     output_dir = Path(outdir_override).resolve()
-                    output_name = yaml_path.stem
+                    output_name = resolved_output_name
                 else:
                     output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
 
                 output_dir.mkdir(parents=True, exist_ok=True)
 
                 build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-                cmd = build.wireviz_command_with_output(yaml_path, passthrough, output_dir)
-
-                subprocess.run(cmd)
+                result_code, _ = build.run_wireviz(yaml_path, passthrough, output_dir)
+                if result_code != 0:
+                    sg.popup_error("Build failed. Check YAML and command options, then try again.")
+                    continue
 
                 base = output_dir / output_name
                 html_path = base.with_suffix(".html")
@@ -114,17 +119,21 @@ def run_build_gui():
 
                 sg.popup_ok(f"Build complete.\nOutput folder:\n{output_dir}")
 
-                if vals["open_after"]:
+                if vals["open_after"] and hasattr(os, "startfile"):
                     os.startfile(output_dir)
 
                 win.close()
                 return
 
+            except SystemExit as e:
+                msg = str(e) if str(e).strip() else "Operation failed."
+                sg.popup_error(f"Error:\n{msg}")
             except Exception as e:
                 sg.popup_error(f"Error:\n{e}")
 
 
 def main():
+    build.configure_portable_runtime()
     sg.theme("SystemDefault")
 
     layout = [

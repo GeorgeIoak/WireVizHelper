@@ -2,7 +2,7 @@
 
 WireVizHelper extends WireViz to produce single-file engineering sheets and richer BOM output while keeping YAML as the source of truth.
 
-The **WireViz Project Assistant** adds a graphical interface (GUI) and automated build tooling to make project creation and diagram generation easier for both technical and non‑technical users.
+The **WireViz Project Assistant** adds a graphical interface (GUI) and automated build tooling to make project creation and diagram generation easier for both technical and non-technical users.
 
 ---
 
@@ -26,37 +26,14 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 
 You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 
-###a permanent change, open a new terminal to pick up the new PATH.
+- `WireVizProjectAssistant-full.zip`: portable folder build (EXE + bundled runtime files).
+- `WireVizProjectAssistant-simple.exe`: single-file standalone build.
 
-PowerShell (current session):
+Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf installs or PATH edits.
 
-```powershell
-$env:Path = "$env:Path;C:\Program Files\Graphviz\bin"
-dot -V
-```
+## Manual Dependencies (Source/Dev Use)
 
-PowerShell (permanent, user):
-
-```powershell
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\Graphviz\bin", "User")
-dot -V
-```
-
-cmd.exe (current session):
-
-```cmd
-set PATH=%PATH%;C:\Program Files\Graphviz\bin
-dot -V
-```
-
-cmd.exe (permanent, user):
-
-```cmd
-setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
-dot -V
-```
-
-Windows note: PDF output needs a PDF engine beyond Graphviz. `requirements.txt` installs `weasyprint`, but WeasyPrint may still require native GTK/Pango runtime libraries on Windows. If PDF generation fails, install `wkhtmltopdf` (`winget install --id wkhtmltopdf.wkhtmltox --exact`) and rebuild. This `winget` command works in both PowerShell and `cmd.exe`.
+If you run from source instead of packaged EXEs, install runtime dependencies on your system:
 
 ```bash
 # macOS

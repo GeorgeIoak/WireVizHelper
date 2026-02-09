@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -44,6 +46,70 @@ WKHTML_PAGE_SIZE: dict[str, str] = {
     "LEGAL": "Legal",
     "TABLOID": "Tabloid",
 }
+
+
+def _runtime_roots() -> list[Path]:
+    """Return possible runtime roots for source and frozen execution."""
+    roots: list[Path] = []
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            roots.append(Path(meipass))
+        roots.append(Path(sys.executable).resolve().parent)
+    roots.append(Path(__file__).resolve().parent)
+
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for root in roots:
+        key = str(root.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(root)
+    return unique
+
+
+def configure_portable_runtime() -> None:
+    """Prepend packaged Graphviz/wkhtmltopdf bin folders to PATH if present."""
+    candidates: list[Path] = []
+    for root in _runtime_roots():
+        candidates.extend(
+            [
+                root / "graphviz" / "bin",
+                root / "wkhtmltopdf" / "bin",
+                root / "vendor" / "graphviz" / "bin",
+                root / "vendor" / "wkhtmltopdf" / "bin",
+            ]
+        )
+
+    existing = [str(p) for p in candidates if p.exists()]
+    if existing:
+        os.environ["PATH"] = os.pathsep.join(existing + [os.environ.get("PATH", "")])
+        for entry in existing:
+            dot_exe = Path(entry) / "dot.exe"
+            if dot_exe.exists():
+                os.environ.setdefault("GRAPHVIZ_DOT", str(dot_exe))
+                break
+
+
+def _run_wireviz_module(args: list[str]) -> int:
+    old_argv = sys.argv[:]
+    try:
+        sys.argv = ["wireviz", *args]
+        runpy.run_module("wireviz", run_name="__main__", alter_sys=True)
+        return 0
+    except SystemExit as e:
+        if isinstance(e.code, int):
+            return e.code
+        return 0 if e.code in (None, False) else 1
+    except Exception as e:
+        print(f"Error: Failed to execute wireviz module: {e}")
+        return 1
+    finally:
+        sys.argv = old_argv
+
+
+configure_portable_runtime()
 
 
 def split_args(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -94,6 +160,27 @@ def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
         *passthrough,
     ]
     return cmd
+
+
+def run_wireviz(yaml_path: Path, passthrough: list[str], output_dir: Path) -> tuple[int, str]:
+    passthrough_with_dir = ensure_output_dir_arg(passthrough, output_dir)
+    cmd = wireviz_command(yaml_path, passthrough_with_dir)
+    cmd_display = " ".join(cmd)
+
+    # In frozen apps, `sys.executable -m wireviz` is not a valid invocation.
+    if (
+        getattr(sys, "frozen", False)
+        and len(cmd) >= 3
+        and cmd[0] == sys.executable
+        and cmd[1] == "-m"
+        and cmd[2] == "wireviz"
+    ):
+        return _run_wireviz_module([str(yaml_path), *passthrough_with_dir]), (
+            "wireviz " + " ".join([str(yaml_path), *passthrough_with_dir])
+        )
+
+    result = subprocess.run(cmd)
+    return result.returncode, cmd_display
 
 
 def ensure_runtime_dependencies() -> None:
@@ -187,6 +274,12 @@ def prepare_local_template_for_output(
     if not src.exists():
         # Fallback to toolkit-local template when building external projects.
         src = Path(__file__).resolve().parent / f"{template_name}.html"
+    if not src.exists():
+        for root in _runtime_roots():
+            probe = root / f"{template_name}.html"
+            if probe.exists():
+                src = probe
+                break
     if not src.exists():
         return
 
@@ -629,12 +722,10 @@ def main() -> None:
     sheetsize = resolve_sheetsize(yaml_data)
     output_dir.mkdir(parents=True, exist_ok=True)
     prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-    cmd = wireviz_command_with_output(yaml_path, passthrough, output_dir)
-
-    print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        sys.exit(result.returncode)
+    result_code, cmd_display = run_wireviz(yaml_path, passthrough, output_dir)
+    print(f"Running: {cmd_display}")
+    if result_code != 0:
+        sys.exit(result_code)
 
     base = output_dir / output_name
     html_path = base.with_suffix(".html")

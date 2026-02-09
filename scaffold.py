@@ -18,7 +18,25 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
+def _resolve_root() -> Path:
+    code_root = Path(__file__).resolve().parent
+    if not getattr(sys, "frozen", False):
+        return code_root
+
+    candidates = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass))
+    candidates.append(Path(sys.executable).resolve().parent)
+    candidates.append(code_root)
+
+    for root in candidates:
+        if (root / "starter").exists():
+            return root
+    return code_root
+
+
+ROOT = _resolve_root()
 STARTER_DIR = ROOT / "starter"
 
 
@@ -38,8 +56,7 @@ def _normalize_yaml_name(name: str) -> str:
     if not n:
         return "drawing.yaml"
     if "/" in n or "\\" in n:
-        print("Error: --yaml-name must be a file name, not a path.")
-        sys.exit(1)
+        raise ValueError("--yaml-name must be a file name, not a path.")
     if not n.endswith((".yaml", ".yml")):
         n = f"{n}.yaml"
     return n
@@ -94,8 +111,7 @@ def resolve_target(args: argparse.Namespace) -> tuple[Path, str]:
         return dest, project_name
 
     if not args.name:
-        print("Error: --name is required unless --in-place is used.")
-        sys.exit(1)
+        raise ValueError("--name is required unless --in-place is used.")
 
     folder = _slug(args.name)
     return dest / folder, args.name.strip()
@@ -104,14 +120,12 @@ def resolve_target(args: argparse.Namespace) -> tuple[Path, str]:
 def ensure_target(target: Path, force: bool) -> None:
     if target.exists():
         if not target.is_dir():
-            print(f"Error: Target path exists and is not a directory: {target}")
-            sys.exit(1)
+            raise ValueError(f"Target path exists and is not a directory: {target}")
         if any(target.iterdir()) and not force:
-            print(
-                f"Error: Target directory is not empty: {target}\n"
+            raise ValueError(
+                f"Target directory is not empty: {target}. "
                 "Use --force to allow writing into an existing non-empty directory."
             )
-            sys.exit(1)
     else:
         target.mkdir(parents=True, exist_ok=True)
 
@@ -166,18 +180,22 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    ensure_runtime_dependencies()
-    args = parse_args()
-    target, project_name = resolve_target(args)
-    yaml_name = _normalize_yaml_name(args.yaml_name)
-    ensure_target(target, args.force)
-    scaffold_project(target, project_name, yaml_name)
+    try:
+        ensure_runtime_dependencies()
+        args = parse_args()
+        target, project_name = resolve_target(args)
+        yaml_name = _normalize_yaml_name(args.yaml_name)
+        ensure_target(target, args.force)
+        scaffold_project(target, project_name, yaml_name)
 
-    print(f"Created project: {target}")
-    print("Next steps:")
-    print(f"  cd {target}")
-    print(f"  edit {yaml_name}")
-    print(f"  python /path/to/toolkit/build.py {yaml_name}")
+        print(f"Created project: {target}")
+        print("Next steps:")
+        print(f"  cd {target}")
+        print(f"  edit {yaml_name}")
+        print(f"  python /path/to/toolkit/build.py {yaml_name}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
