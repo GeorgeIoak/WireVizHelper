@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-import PySimpleGUI as sg
 import os
 import shlex
 from pathlib import Path
+
+try:
+    import FreeSimpleGUI as sg
+except ModuleNotFoundError:
+    import PySimpleGUI as sg
 
 import scaffold
 import build
@@ -134,6 +138,17 @@ def run_build_gui():
 
 def main():
     build.configure_portable_runtime()
+    if build.is_frozen_app():
+        issues = build.validate_runtime_requirements()
+        if issues:
+            issue_text = "\n".join(f"- {x}" for x in issues)
+            sg.popup_error(
+                "Runtime setup problem detected.\n\n"
+                f"{issue_text}\n\n"
+                "Use the full portable package and keep bundled files together."
+            )
+            return
+
     sg.theme("SystemDefault")
 
     layout = [

@@ -11,7 +11,7 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 ### Core WireVizHelper Features
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
-- Attempts single-page PDF generation from the rendered HTML (`weasyprint`, then `wkhtmltopdf`).
+- Attempts single-page PDF generation from the rendered HTML (`wkhtmltopdf` on Windows, then `weasyprint` fallback).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
 ### WireViz Project Assistant (GUI)
@@ -30,6 +30,29 @@ You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 - `WireVizProjectAssistant-simple.exe`: single-file standalone build.
 
 Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf installs or PATH edits.
+
+## Local EXE Build (Windows)
+
+```powershell
+pip install -r requirements.txt pyinstaller
+```
+
+Populate `vendor/` with portable binaries (same layout used in CI):
+
+- `vendor/graphviz/bin/dot.exe`
+- `vendor/wkhtmltopdf/bin/wkhtmltopdf.exe`
+
+Then build:
+
+```powershell
+# full portable folder build
+pyinstaller WireVizProjectAssistant.spec
+
+# single-file standalone build
+pyinstaller WireVizProjectAssistant.simple.spec
+```
+
+`vendor/graphviz/.gitkeep` and `vendor/wkhtmltopdf/.gitkeep` are placeholders so folder structure is tracked in git.
 
 ## Manual Dependencies (Source/Dev Use)
 
@@ -53,6 +76,8 @@ Verify Graphviz:
 ```bash
 dot -V
 ```
+
+GUI dependency note: this project uses `FreeSimpleGUI` (community fork API-compatible with classic PySimpleGUI).
 
 ## Quick Start
 

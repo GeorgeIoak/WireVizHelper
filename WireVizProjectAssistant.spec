@@ -26,7 +26,8 @@ def safe_collect(package: str) -> list[str]:
 
 
 hidden = (
-    safe_collect("PySimpleGUI")
+    safe_collect("FreeSimpleGUI")
+    + safe_collect("PySimpleGUI")
     + safe_collect("wireviz")
     + safe_collect("weasyprint")
 )

@@ -74,12 +74,12 @@ def _write_project_readme(dst: Path, project_name: str, yaml_name: str) -> None:
 
 def ensure_runtime_dependencies() -> None:
     """Check key modules and install from requirements if needed."""
+    if getattr(sys, "frozen", False):
+        return
+
     needed = ["wireviz", "yaml"]
     missing = [m for m in needed if importlib.util.find_spec(m) is None]
-    weasyprint_present = importlib.util.find_spec("weasyprint") is not None
-    wkhtmltopdf_present = shutil.which("wkhtmltopdf") is not None
-    pdf_engine_ready = weasyprint_present or wkhtmltopdf_present
-    if not missing and pdf_engine_ready:
+    if not missing:
         return
 
     req = ROOT / "requirements.txt"
@@ -90,7 +90,7 @@ def ensure_runtime_dependencies() -> None:
         )
         return
 
-    status = ", ".join(missing) if missing else "PDF engine"
+    status = ", ".join(missing)
     print(
         f"Missing dependencies detected ({status}). Installing from requirements.txt ...",
         flush=True,
