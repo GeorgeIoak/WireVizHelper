@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 
-root = Path(__file__).resolve().parent
+_spec_file = globals().get("__file__")
+root = Path(_spec_file).resolve().parent if _spec_file else Path.cwd()
 
 graphviz_bin = root / "vendor" / "graphviz" / "bin"
 wkhtml_bin = root / "vendor" / "wkhtmltopdf" / "bin"
