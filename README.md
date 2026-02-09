@@ -14,7 +14,7 @@ WireVizHelper extends WireViz to produce single-file engineering sheets and rich
 Install once per machine:
 
 1. `Python 3.x`
-2. `Graphviz` (required by WireViz)
+2. `Graphviz` (required by WireViz). On Windows, the installer does **not** add `dot` to PATH — add `C:\Program Files\Graphviz\bin` manually.
 3. Optional PDF engine:
    - Preferred: `WeasyPrint` (pip package; native libs needed on macOS)
    - Fallback: `wkhtmltopdf` CLI
@@ -25,6 +25,12 @@ Install once per machine:
 # Windows (PowerShell)
 winget install Graphviz.Graphviz
 winget install --id wkhtmltopdf.wkhtmltox --exact  # Optional fallback
+```
+
+Windows PATH note (Graphviz): add `C:\Program Files\Graphviz\bin` to your PATH, then open a new terminal and run `dot -V`.
+
+```cmd
+setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
 ```
 
 Windows note: PDF output needs a PDF engine beyond Graphviz. `requirements.txt` installs `weasyprint`, but WeasyPrint may still require native GTK/Pango runtime libraries on Windows. If PDF generation fails, install `wkhtmltopdf` (`winget install --id wkhtmltopdf.wkhtmltox --exact`) and rebuild. This `winget` command works in both PowerShell and `cmd.exe`.

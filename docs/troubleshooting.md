@@ -27,14 +27,27 @@ Symptoms:
 Fix:
 
 1. Install Graphviz.
-2. Restart terminal.
-3. Confirm with:
+2. Add Graphviz to PATH (Windows default install path is `C:\Program Files\Graphviz\bin`).
+3. Restart terminal.
+4. Confirm with:
 
 ```bash
 dot -V
 ```
 
 If `dot -V` still fails, ensure Graphviz is on your PATH.
+
+Windows PATH quick fix (current session):
+
+```cmd
+set PATH=%PATH%;C:\Program Files\Graphviz\bin
+```
+
+Windows PATH permanent (user):
+
+```cmd
+setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
+```
 
 ## Python Dependency Install Fails
 

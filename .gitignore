@@ -1,0 +1,8 @@
+.DS_Store
+__pycache__/
+output/
+.vscode/
+
+# Optional local/private project variants
+*.private.yaml
+project.fields.yaml
