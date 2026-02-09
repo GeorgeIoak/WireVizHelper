@@ -36,11 +36,10 @@ hidden = (
 a = Analysis(
     ["gui.py"],
     pathex=[str(root)],
-    binaries=[
+    binaries=[],
+    datas=[
         (str(graphviz_bin), "graphviz/bin"),
         (str(wkhtml_bin), "wkhtmltopdf/bin"),
-    ],
-    datas=[
         (str(starter_dir), "starter"),
         (str(template_file), "."),
         (str(gitignore_file), "."),
