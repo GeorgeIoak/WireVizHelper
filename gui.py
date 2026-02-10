@@ -64,7 +64,7 @@ def run_smoke_test(workdir: Path) -> int:
     output_dir, output_name = build.resolve_output_paths(yaml_path, [])
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
     result_code, cmd_display, _, _ = build.run_wireviz(yaml_path, [], output_dir)
     print(f"Smoke test WireViz command: {cmd_display}")
     if result_code != 0:
@@ -179,6 +179,99 @@ def run_gui_smoke_test(timeout_s: float = 5.0) -> int:
     return 1
 
 
+def _write_wireviz_log(
+    output_dir: Path,
+    cmd_display: str,
+    result_code: int,
+    stdout: str,
+    stderr: str,
+) -> Path:
+    log_path = output_dir / "wireviz-error.log"
+    log_lines = [
+        "=== WIREVIZ FAILURE ===",
+        f"Command: {cmd_display}",
+        f"Exit code: {result_code}",
+    ]
+    if stdout:
+        log_lines.append("")
+        log_lines.append("=== STDOUT ===")
+        log_lines.append(stdout)
+    if stderr:
+        log_lines.append("")
+        log_lines.append("=== STDERR ===")
+        log_lines.append(stderr)
+    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+    return log_path
+
+
+def run_build_scripted(
+    yaml_path: Path, outdir_override: Path | None, extra_args: list[str]
+) -> int:
+    """Run the same build pipeline as the GUI, without UI prompts."""
+    if not yaml_path.exists():
+        print(f"Error: YAML file not found: {yaml_path}")
+        return 1
+
+    build.ensure_runtime_dependencies()
+    yaml_path = build.resolve_yaml([str(yaml_path)])
+    yaml_data = build.load_yaml_data(yaml_path)
+
+    passthrough = extra_args
+    _, resolved_output_name = build.resolve_output_paths(yaml_path, passthrough)
+
+    if outdir_override:
+        output_dir = outdir_override.resolve()
+        output_name = resolved_output_name
+    else:
+        output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    result_code, cmd_display, stdout, stderr = build.run_wireviz(
+        yaml_path, passthrough, output_dir
+    )
+    if result_code != 0:
+        log_path = _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        print(f"Build failed. See log: {log_path}")
+        return result_code
+
+    base = output_dir / output_name
+    html_path = base.with_suffix(".html")
+    pdf_path = base.with_suffix(".pdf")
+    tsv_path = Path(f"{base}.bom.tsv")
+    svg_path = base.with_suffix(".svg")
+    png_path = base.with_suffix(".png")
+
+    build.merge_photo_rows_in_tsv(tsv_path)
+    build.merge_photo_rows_in_html(html_path)
+    build.rename_header_in_html(html_path)
+    build.rename_header_in_tsv(tsv_path)
+    build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
+    build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
+    build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+
+    if copied_template and copied_template.exists():
+        try:
+            copied_template.unlink()
+        except Exception:
+            pass
+
+    if copied_template and copied_template.exists():
+        try:
+            copied_template.unlink()
+        except Exception:
+            pass
+
+    required = [html_path, svg_path, png_path, tsv_path, pdf_path]
+    missing = [str(p) for p in required if not p.exists()]
+    if missing:
+        print("Build failed: Missing required outputs:")
+        for p in missing:
+            print(f"  - {p}")
+        return 1
+    return 0
+
+
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
     p = argparse.ArgumentParser(
         add_help=True,
@@ -203,6 +296,18 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         "--gui-smoke",
         action="store_true",
         help="Run a lightweight GUI init test and exit.",
+    )
+    p.add_argument(
+        "--gui-scripted",
+        action="store_true",
+        help="Run a scripted GUI build (no UI) with prepopulated fields.",
+    )
+    p.add_argument("--yaml", help="YAML file to build with --gui-scripted.")
+    p.add_argument("--outdir", help="Output directory for --gui-scripted.")
+    p.add_argument(
+        "--extra",
+        default="",
+        help="Extra WireViz args for --gui-scripted (quoted string).",
     )
 
     sub = p.add_subparsers(dest="command")
@@ -371,25 +476,32 @@ def run_build_gui():
 
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-                build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-                result_code, _, stdout, stderr = build.run_wireviz(yaml_path, passthrough, output_dir)
+                copied_template = build.prepare_local_template_for_output(
+                    yaml_path, output_dir, yaml_data
+                )
+                result_code, cmd_display, stdout, stderr = build.run_wireviz(
+                    yaml_path, passthrough, output_dir
+                )
                 if result_code != 0:
                     log_path = output_dir / "wireviz-error.log"
-                    log_lines = []
+                    log_lines = [
+                        "=== WIREVIZ FAILURE ===",
+                        f"Command: {cmd_display}",
+                        f"Exit code: {result_code}",
+                    ]
                     if stdout:
+                        log_lines.append("")
                         log_lines.append("=== STDOUT ===")
                         log_lines.append(stdout)
                     if stderr:
+                        log_lines.append("")
                         log_lines.append("=== STDERR ===")
                         log_lines.append(stderr)
-                    if log_lines:
-                        log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
-                        sg.popup_error(
-                            "Build failed.\n\n"
-                            f"See log:\n{log_path}"
-                        )
-                    else:
-                        sg.popup_error("Build failed. Check YAML and command options, then try again.")
+                    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+                    sg.popup_error(
+                        "Build failed.\n\n"
+                        f"See log:\n{log_path}"
+                    )
                     continue
 
                 base = output_dir / output_name
@@ -404,6 +516,12 @@ def run_build_gui():
                 build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
                 build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
                 build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+
+                if copied_template and copied_template.exists():
+                    try:
+                        copied_template.unlink()
+                    except Exception:
+                        pass
 
                 sg.popup_ok(f"Build complete.\nOutput folder:\n{output_dir}")
 
@@ -436,6 +554,15 @@ def main():
 
     if args.gui_smoke:
         code = run_gui_smoke_test()
+        raise SystemExit(code)
+
+    if args.gui_scripted:
+        if not args.yaml:
+            print("Error: --yaml is required with --gui-scripted.")
+            raise SystemExit(2)
+        outdir = Path(args.outdir) if args.outdir else None
+        extra_args = shlex.split(args.extra) if args.extra else []
+        code = run_build_scripted(Path(args.yaml), outdir, extra_args)
         raise SystemExit(code)
 
     if args.command == "scaffold":

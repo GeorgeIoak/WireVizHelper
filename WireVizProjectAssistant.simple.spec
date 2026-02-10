@@ -9,7 +9,8 @@ from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 _spec_file = globals().get("__file__")
 root = Path(_spec_file).resolve().parent if _spec_file else Path.cwd()
 
-graphviz_bin = root / "vendor" / "graphviz" / "bin"
+graphviz_root = root / "vendor" / "graphviz"
+graphviz_bin = graphviz_root / "bin"
 starter_dir = root / "starter"
 template_file = root / "engineering-sheet.html"
 gitignore_file = root / ".gitignore"
@@ -56,7 +57,7 @@ a = Analysis(
     pathex=[str(root)],
     binaries=tcl_tk_bins,
     datas=[
-        (str(graphviz_bin), "graphviz/bin"),
+        (str(graphviz_root), "graphviz"),
         (str(starter_dir), "starter"),
         (str(template_file), "."),
         (str(gitignore_file), "."),

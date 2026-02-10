@@ -92,6 +92,26 @@ def configure_portable_runtime() -> None:
             dot_exe = Path(entry) / "dot.exe"
             if dot_exe.exists():
                 os.environ.setdefault("GRAPHVIZ_DOT", str(dot_exe))
+                os.environ.setdefault("GVBINDIR", str(Path(entry)))
+                # Prefer portable plugin directory when bundled.
+                graphviz_root = Path(entry).parent
+                plugin_dir = graphviz_root / "lib" / "graphviz"
+                # Graphviz plugins (gvplugin_*.dll) live in bin on Windows.
+                os.environ.setdefault("GVPLUGIN_PATH", str(Path(entry)))
+                if plugin_dir.exists():
+                    os.environ.setdefault("GVCONFDIR", str(plugin_dir))
+                # Ensure plugin config exists for portable builds.
+                config_file = plugin_dir / "config6" if plugin_dir.exists() else None
+                if config_file and not config_file.exists():
+                    try:
+                        subprocess.run(
+                            [str(dot_exe), "-c"],
+                            cwd=str(graphviz_root),
+                            capture_output=True,
+                            text=True,
+                        )
+                    except Exception:
+                        pass
                 break
 
 
@@ -960,18 +980,26 @@ def main() -> None:
     print(f"Running: {cmd_display}")
     if result_code != 0:
         log_path = output_dir / "wireviz-error.log"
-        log_lines = []
+        log_lines = [
+            "=== WIREVIZ FAILURE ===",
+            f"Command: {cmd_display}",
+            f"Exit code: {result_code}",
+        ]
         if stdout:
+            log_lines.append("")
             log_lines.append("=== STDOUT ===")
             log_lines.append(stdout)
         if stderr:
+            log_lines.append("")
             log_lines.append("=== STDERR ===")
             log_lines.append(stderr)
-        if log_lines:
-            log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
-            print(f"WireViz error log: {log_path}")
-        else:
-            print("WireViz failed without output.")
+        log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+        print(f"WireViz error log: {log_path}")
+        if copied_template and copied_template.exists():
+            try:
+                copied_template.unlink()
+            except Exception:
+                pass
         sys.exit(result_code)
 
     base = output_dir / output_name

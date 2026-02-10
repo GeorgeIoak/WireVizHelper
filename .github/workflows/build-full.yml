@@ -29,17 +29,17 @@ jobs:
         run: |
           choco install graphviz -y --no-progress
 
-      - name: Copy runtime binaries into vendor
+      - name: Copy Graphviz into vendor
         shell: pwsh
         run: |
-          $graphvizBin = Join-Path $env:ProgramFiles "Graphviz\\bin"
-          if (!(Test-Path $graphvizBin)) {
-            $graphvizBin = Join-Path ${env:ProgramFiles(x86)} "Graphviz\\bin"
+          $graphvizRoot = Join-Path $env:ProgramFiles "Graphviz"
+          if (!(Test-Path $graphvizRoot)) {
+            $graphvizRoot = Join-Path ${env:ProgramFiles(x86)} "Graphviz"
           }
-          if (!(Test-Path $graphvizBin)) {
-            throw "Graphviz bin not found after install"
+          if (!(Test-Path $graphvizRoot)) {
+            throw "Graphviz root not found after install"
           }
-          Copy-Item -Recurse -Force $graphvizBin vendor/graphviz/
+          Copy-Item -Recurse -Force $graphvizRoot/* vendor/graphviz/
 
       - name: Build full EXE
         run: python -m PyInstaller WireVizProjectAssistant.spec
@@ -53,6 +53,11 @@ jobs:
         shell: pwsh
         run: |
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-smoke
+
+      - name: GUI scripted build (full)
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml .\starter\drawing.yaml --outdir .\ci-gui-full
 
       - name: List smoke outputs (full)
         shell: pwsh
