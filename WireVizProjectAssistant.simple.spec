@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 _spec_file = globals().get("__file__")
 root = Path(_spec_file).resolve().parent if _spec_file else Path.cwd()
@@ -30,7 +30,10 @@ hidden = (
     + safe_collect("PySimpleGUI")
     + safe_collect("wireviz")
     + safe_collect("weasyprint")
+    + ["tkinter"]
 )
+
+tcl_tk_datas = collect_data_files("tkinter")
 
 a = Analysis(
     ["gui.py"],
@@ -41,7 +44,7 @@ a = Analysis(
         (str(starter_dir), "starter"),
         (str(template_file), "."),
         (str(gitignore_file), "."),
-    ],
+    ] + tcl_tk_datas,
     hiddenimports=hidden,
     noarchive=False,
 )

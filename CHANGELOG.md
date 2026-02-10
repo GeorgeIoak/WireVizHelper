@@ -5,6 +5,10 @@ All notable changes to **WireViz Project Assistant** will be documented here.
 
 - No changes yet.
 
+## [1.1.1] - 2026-02-10
+### Fixed
+- Bundle Tk/Tcl runtime data in PyInstaller builds to prevent init.tcl errors.
+
 ## [1.1.0] - 2026-02-10
 ### Added
 - Headless browser PDF generation (Edge/Chrome/Brave/Chromium)
