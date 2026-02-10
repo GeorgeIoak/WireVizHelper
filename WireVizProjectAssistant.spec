@@ -8,14 +8,12 @@ _spec_file = globals().get("__file__")
 root = Path(_spec_file).resolve().parent if _spec_file else Path.cwd()
 
 graphviz_bin = root / "vendor" / "graphviz" / "bin"
-wkhtml_bin = root / "vendor" / "wkhtmltopdf" / "bin"
 starter_dir = root / "starter"
 template_file = root / "engineering-sheet.html"
 gitignore_file = root / ".gitignore"
 
 os.environ["PATH"] = (
     str(graphviz_bin) + os.pathsep +
-    str(wkhtml_bin) + os.pathsep +
     os.environ.get("PATH", "")
 )
 
@@ -39,7 +37,6 @@ a = Analysis(
     binaries=[],
     datas=[
         (str(graphviz_bin), "graphviz/bin"),
-        (str(wkhtml_bin), "wkhtmltopdf/bin"),
         (str(starter_dir), "starter"),
         (str(template_file), "."),
         (str(gitignore_file), "."),
