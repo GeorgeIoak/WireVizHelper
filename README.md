@@ -12,7 +12,7 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
-- Attempts single-page PDF generation from the rendered HTML (`wkhtmltopdf` on Windows, then `weasyprint` fallback).
+- Attempts single-page PDF generation from the rendered HTML using a headless Chromium-based browser (Edge/Chrome/Brave/Chromium).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
 ### WireViz Project Assistant (GUI)
@@ -31,7 +31,7 @@ You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 - `WireVizProjectAssistant-full.zip`: portable folder build (EXE + bundled runtime files).
 - `WireVizProjectAssistant-simple.exe`: single-file standalone build.
 
-Both Windows builds are intended to run without manual Graphviz/wkhtmltopdf installs or PATH edits.
+Both Windows builds are intended to run without manual Graphviz installs or PATH edits.
 
 ## Install And Use (Windows Release)
 
@@ -72,7 +72,6 @@ pip install -r requirements.txt pyinstaller
 Populate `vendor/` with portable binaries (same layout used in CI):
 
 - `vendor/graphviz/bin/dot.exe`
-- `vendor/wkhtmltopdf/bin/wkhtmltopdf.exe`
 
 Then build:
 
@@ -84,7 +83,7 @@ pyinstaller WireVizProjectAssistant.spec
 pyinstaller WireVizProjectAssistant.simple.spec
 ```
 
-`vendor/graphviz/.gitkeep` and `vendor/wkhtmltopdf/.gitkeep` are placeholders so folder structure is tracked in git.
+`vendor/graphviz/.gitkeep` is a placeholder so folder structure is tracked in git.
 
 Smoke-test packaged EXEs headlessly (used by CI workflows):
 
@@ -103,14 +102,13 @@ If you run from source instead of packaged EXEs, install runtime dependencies on
 ```bash
 # macOS
 brew install graphviz
-brew install pango cairo gdk-pixbuf libffi  # WeasyPrint libs
-brew install wkhtmltopdf                    # Optional fallback
+brew install pango cairo gdk-pixbuf libffi  # WeasyPrint libs (optional)
 ```
 
 ```bash
 # Ubuntu / Debian
 sudo apt-get update
-sudo apt-get install -y graphviz wkhtmltopdf
+sudo apt-get install -y graphviz
 ```
 
 Verify Graphviz:
@@ -120,6 +118,18 @@ dot -V
 ```
 
 GUI dependency note: this project uses `FreeSimpleGUI` (community fork API-compatible with classic PySimpleGUI).
+
+PDF note: the build uses a headless Chromium-based browser if available. You can override the browser path with:
+
+```bash
+# macOS / Linux
+export WIREVIZ_PDF_BROWSER=/path/to/chrome
+```
+
+```powershell
+# Windows (PowerShell)
+$env:WIREVIZ_PDF_BROWSER = "C:\Path\To\msedge.exe"
+```
 
 ## Quick Start
 
@@ -159,7 +169,7 @@ python /path/to/WireVizHelper/build.py /path/to/project/drawing.yaml
 - BOM column header `SPN` is renamed to `Product Photo`.
 - Photo helper rows are merged into matching rows (by `Designators` or `MPN`) and removed.
 - Image paths are rewritten for output-folder correctness.
-- PDF is emitted when a supported engine is available.
+- PDF is emitted when a supported engine is available (headless browser preferred).
 
 ## Scaffold Options
 

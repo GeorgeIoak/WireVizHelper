@@ -23,11 +23,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path vendor | Out-Null
           New-Item -ItemType Directory -Force -Path vendor/graphviz | Out-Null
-          New-Item -ItemType Directory -Force -Path vendor/wkhtmltopdf | Out-Null
 
-      - name: Install Graphviz and wkhtmltopdf
+      - name: Install Graphviz
         run: |
-          choco install graphviz wkhtmltopdf -y --no-progress
+          choco install graphviz -y --no-progress
 
       - name: Copy runtime binaries into vendor
         shell: pwsh
@@ -40,15 +39,6 @@ jobs:
             throw "Graphviz bin not found after install"
           }
           Copy-Item -Recurse -Force $graphvizBin vendor/graphviz/
-
-          $wkhtmlBin = Join-Path $env:ProgramFiles "wkhtmltopdf\\bin"
-          if (!(Test-Path $wkhtmlBin)) {
-            $wkhtmlBin = Join-Path ${env:ProgramFiles(x86)} "wkhtmltopdf\\bin"
-          }
-          if (!(Test-Path $wkhtmlBin)) {
-            throw "wkhtmltopdf bin not found after install"
-          }
-          Copy-Item -Recurse -Force $wkhtmlBin vendor/wkhtmltopdf/
 
       - name: Build simple EXE
         run: python -m PyInstaller WireVizProjectAssistant.simple.spec
