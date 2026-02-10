@@ -11,7 +11,23 @@ import build
 from version import __version__
 
 
+def _configure_tk_runtime() -> None:
+    """Point tkinter to bundled Tcl/Tk when running as a frozen app."""
+    if not getattr(sys, "frozen", False):
+        return
+    base = Path(getattr(sys, "_MEIPASS", ""))
+    if not base:
+        return
+    tcl_dir = base / "_tcl_data"
+    tk_dir = base / "_tk_data"
+    if tcl_dir.exists():
+        os.environ.setdefault("TCL_LIBRARY", str(tcl_dir))
+    if tk_dir.exists():
+        os.environ.setdefault("TK_LIBRARY", str(tk_dir))
+
+
 def _load_gui_lib():
+    _configure_tk_runtime()
     try:
         import FreeSimpleGUI as _sg
     except ModuleNotFoundError:
@@ -128,6 +144,41 @@ def run_smoke_test(workdir: Path) -> int:
     return 0
 
 
+def run_gui_smoke_test(timeout_s: float = 5.0) -> int:
+    """Lightweight GUI initialization check with a hard timeout."""
+    import threading
+
+    result = {"ok": False, "error": None}
+
+    def _target():
+        try:
+            sg = _load_gui_lib()
+            win = sg.Window(
+                "GUI Smoke Test",
+                [[sg.Text("GUI init OK")], [sg.Button("Close")]],
+                finalize=True,
+            )
+            try:
+                win.read(timeout=100)
+            finally:
+                win.close()
+            result["ok"] = True
+        except Exception as e:
+            result["error"] = str(e)
+
+    t = threading.Thread(target=_target, daemon=True)
+    t.start()
+    t.join(timeout=timeout_s)
+    if t.is_alive():
+        print("GUI smoke test failed: timeout")
+        return 1
+    if result["ok"]:
+        print("GUI smoke test passed.")
+        return 0
+    print(f"GUI smoke test failed: {result['error']}")
+    return 1
+
+
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
     p = argparse.ArgumentParser(
         add_help=True,
@@ -147,6 +198,11 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         "--version",
         action="store_true",
         help="Print application version and exit.",
+    )
+    p.add_argument(
+        "--gui-smoke",
+        action="store_true",
+        help="Run a lightweight GUI init test and exit.",
     )
 
     sub = p.add_subparsers(dest="command")
@@ -361,6 +417,10 @@ def main():
     if args.smoke_test:
         workdir = Path(args.workdir).expanduser().resolve()
         code = run_smoke_test(workdir)
+        raise SystemExit(code)
+
+    if args.gui_smoke:
+        code = run_gui_smoke_test()
         raise SystemExit(code)
 
     if args.command == "scaffold":

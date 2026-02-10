@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import sysconfig
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 _spec_file = globals().get("__file__")
@@ -33,6 +34,12 @@ hidden = (
 )
 
 tcl_tk_datas = collect_data_files("tkinter")
+tcl_library = sysconfig.get_config_var("TCL_LIBRARY")
+tk_library = sysconfig.get_config_var("TK_LIBRARY")
+if tcl_library:
+    tcl_tk_datas.append((tcl_library, "_tcl_data"))
+if tk_library:
+    tcl_tk_datas.append((tk_library, "_tk_data"))
 
 a = Analysis(
     ["gui.py"],

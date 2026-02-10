@@ -64,6 +64,16 @@ jobs:
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
 
+      - name: GUI smoke test (full)
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-smoke
+
+      - name: GUI smoke test (simple)
+        shell: pwsh
+        run: |
+          .\dist\WireVizProjectAssistant-simple.exe --gui-smoke
+
       - name: List smoke outputs (simple)
         shell: pwsh
         run: |
