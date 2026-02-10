@@ -14,6 +14,9 @@ from __future__ import annotations
 import csv
 import importlib.util
 import os
+import site
+import sysconfig
+import tempfile
 import re
 import runpy
 import shutil
@@ -103,14 +106,11 @@ def validate_runtime_requirements() -> list[str]:
         importlib.util.find_spec("wireviz") is not None
     )
     dot_ready = (shutil.which("dot") is not None) or bool(os.environ.get("GRAPHVIZ_DOT"))
-    wkhtml_ready = shutil.which("wkhtmltopdf") is not None
 
     if not wireviz_ready:
         issues.append("WireViz runtime is missing.")
     if not dot_ready:
         issues.append("Graphviz 'dot' binary is missing.")
-    if not wkhtml_ready:
-        issues.append("wkhtmltopdf binary is missing (PDF export unavailable).")
     return issues
 
 
@@ -174,14 +174,39 @@ def load_yaml_data(yaml_path: Path) -> dict:
 
 def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
     wireviz_bin = shutil.which("wireviz")
-    cmd = [wireviz_bin, str(yaml_path), *passthrough] if wireviz_bin else [
+    if not wireviz_bin:
+        # Fall back to common user-level script locations (Windows/macOS/Linux).
+        script_candidates: list[Path] = []
+        scripts_path = sysconfig.get_path("scripts")
+        if scripts_path:
+            script_candidates.append(Path(scripts_path))
+        user_base = site.getuserbase()
+        if user_base:
+            script_candidates.append(Path(user_base) / "Scripts")
+            script_candidates.append(Path(user_base) / "bin")
+        user_site = site.getusersitepackages()
+        if user_site:
+            user_site_path = Path(user_site)
+            script_candidates.append(user_site_path.parent / "Scripts")
+            script_candidates.append(user_site_path.parent / "bin")
+        for base in script_candidates:
+            if os.name == "nt":
+                candidate = base / "wireviz.exe"
+            else:
+                candidate = base / "wireviz"
+            if candidate.exists():
+                wireviz_bin = str(candidate)
+                break
+
+    if wireviz_bin:
+        return [wireviz_bin, str(yaml_path), *passthrough]
+    return [
         sys.executable,
         "-m",
         "wireviz",
         str(yaml_path),
         *passthrough,
     ]
-    return cmd
 
 
 def run_wireviz(yaml_path: Path, passthrough: list[str], output_dir: Path) -> tuple[int, str]:
@@ -322,45 +347,186 @@ def resolve_sheetsize(yaml_data: dict) -> str:
     return candidate if candidate in SHEETSIZE_TO_MM else "A4"
 
 
+def _path_for_chromium_arg(path: Path) -> str:
+    if os.name == "nt":
+        return path.as_posix()
+    return str(path)
+
+
+def _file_uri(path: Path) -> str:
+    return path.resolve().as_uri()
+
+
+def _css_page_size(sheetsize: str) -> str:
+    return WKHTML_PAGE_SIZE.get(sheetsize.upper(), sheetsize.upper())
+
+
+def _browser_candidates() -> list[tuple[str, str]]:
+    """Return candidate Chromium-based browsers for headless PDF export."""
+    candidates: list[tuple[str, str]] = []
+
+    env_browser = os.environ.get("WIREVIZ_PDF_BROWSER", "").strip()
+    if env_browser:
+        candidates.append(("env", env_browser))
+
+    names_by_os: list[str]
+    if sys.platform.startswith("win"):
+        names_by_os = [
+            "msedge",
+            "msedge.exe",
+            "chrome",
+            "chrome.exe",
+            "google-chrome",
+            "chromium",
+            "brave",
+            "brave.exe",
+        ]
+        pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+        pf86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        local = os.environ.get("LocalAppData", "")
+        known_paths = [
+            os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf86, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(local, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pf86, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pf, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+            os.path.join(pf86, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+            os.path.join(local, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        ]
+    elif sys.platform == "darwin":
+        names_by_os = ["chrome", "chromium", "brave", "microsoft-edge"]
+        known_paths = [
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        ]
+    else:
+        names_by_os = [
+            "google-chrome",
+            "google-chrome-stable",
+            "chromium",
+            "chromium-browser",
+            "brave-browser",
+            "microsoft-edge",
+        ]
+        known_paths = []
+
+    for name in names_by_os:
+        path = shutil.which(name)
+        if path:
+            candidates.append((name, path))
+
+    for path in known_paths:
+        if path and os.path.exists(path):
+            candidates.append(("known", path))
+
+    # De-duplicate while preserving order.
+    seen: set[str] = set()
+    unique: list[tuple[str, str]] = []
+    for label, path in candidates:
+        key = os.path.abspath(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((label, path))
+    return unique
+
+
+def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
+    """Generate PDF using a headless Chromium-based browser if available."""
+    candidates = _browser_candidates()
+    if not candidates:
+        return False, "no supported browser found (set WIREVIZ_PDF_BROWSER)"
+
+    html_for_print = html_path
+    injected = False
+    try:
+        html_text = html_path.read_text(encoding="utf-8")
+        css_size = _css_page_size(sheetsize)
+        style_block = (
+            "<style>"
+            f"@page {{ size: {css_size} landscape; margin: 0; }}"
+            "html, body { margin: 0; padding: 0; }"
+            "</style>"
+        )
+        if "</head>" in html_text:
+            html_text = html_text.replace("</head>", f"{style_block}</head>", 1)
+        else:
+            html_text = style_block + html_text
+        html_for_print = html_path.with_suffix(".print.html")
+        html_for_print.write_text(html_text, encoding="utf-8")
+        injected = True
+    except Exception:
+        html_for_print = html_path
+
+    html_url = _file_uri(html_for_print)
+    pdf_arg = _path_for_chromium_arg(pdf_path.resolve())
+    headless_modes = ["--headless=old", "--headless=new", "--headless"]
+    last_error: str | None = None
+
+    for _, browser in candidates:
+        browser_lower = os.path.basename(browser).lower()
+        is_edge = "edge" in browser_lower or "msedge" in browser_lower
+        for headless in headless_modes:
+            if pdf_path.exists():
+                try:
+                    pdf_path.unlink()
+                except Exception:
+                    pass
+            with tempfile.TemporaryDirectory() as profile_dir:
+                cmd = [
+                    browser,
+                    headless,
+                    "--disable-gpu",
+                    "--no-first-run",
+                    "--disable-extensions",
+                    "--disable-background-networking",
+                    "--disable-sync",
+                    "--no-default-browser-check",
+                    "--landscape",
+                    "--allow-file-access-from-files",
+                    f"--user-data-dir={profile_dir}",
+                    "--no-pdf-header-footer",
+                    f"--print-to-pdf={pdf_arg}",
+                    html_url,
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
+                    if injected:
+                        try:
+                            html_for_print.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    engine = "edge" if is_edge else "chromium"
+                    return True, f"{engine} headless"
+                stderr = (result.stderr or "").strip()
+                stdout = (result.stdout or "").strip()
+                last_error = stderr or stdout or f"exit {result.returncode}"
+
+    if injected:
+        try:
+            html_for_print.unlink(missing_ok=True)
+        except Exception:
+            pass
+    return False, f"browser print failed: {last_error}"
+
+
 def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
     """Generate a single-page PDF from HTML using an available engine."""
     if not html_path.exists():
         return False, "HTML output was not found"
 
+    browser_ok, browser_note = generate_pdf_via_browser(html_path, pdf_path, sheetsize)
+    if browser_ok:
+        return True, browser_note
+
     page_width_mm, page_height_mm = SHEETSIZE_TO_MM.get(sheetsize, SHEETSIZE_TO_MM["A4"])
 
-    # On Windows standalone builds, wkhtmltopdf is bundled and more reliable than WeasyPrint.
-    prefer_wkhtml = os.name == "nt"
+    # Optional engine: WeasyPrint (Python package).
     weasyprint_error: str | None = None
-
-    wkhtmltopdf_bin = shutil.which("wkhtmltopdf")
-    if prefer_wkhtml and wkhtmltopdf_bin:
-        wk_page_size = WKHTML_PAGE_SIZE.get(sheetsize, "A4")
-        cmd = [
-            wkhtmltopdf_bin,
-            "--enable-local-file-access",
-            "--orientation",
-            "Landscape",
-            "--page-size",
-            wk_page_size,
-            "--margin-top",
-            "0",
-            "--margin-right",
-            "0",
-            "--margin-bottom",
-            "0",
-            "--margin-left",
-            "0",
-            str(html_path),
-            str(pdf_path),
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            return True, "wkhtmltopdf"
-        wk_error = (result.stderr or result.stdout).strip() or "unknown error"
-        weasyprint_error = f"wkhtmltopdf failed: {wk_error}"
-
-    # WeasyPrint path (primary on non-Windows; fallback on Windows).
     try:
         from weasyprint import CSS, HTML  # type: ignore
 
@@ -376,11 +542,11 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
         )
         return True, "weasyprint"
     except Exception as e:
-        if not weasyprint_error:
-            weasyprint_error = str(e).strip() or e.__class__.__name__
+        weasyprint_error = str(e).strip() or e.__class__.__name__
 
-    # Non-Windows fallback: wkhtmltopdf if available and not already attempted.
-    if (not prefer_wkhtml) and wkhtmltopdf_bin:
+    # Optional fallback: wkhtmltopdf CLI.
+    wkhtmltopdf_bin = shutil.which("wkhtmltopdf")
+    if wkhtmltopdf_bin:
         wk_page_size = WKHTML_PAGE_SIZE.get(sheetsize, "A4")
         cmd = [
             wkhtmltopdf_bin,
@@ -408,7 +574,10 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
 
     if weasyprint_error:
         return False, f"PDF engine failed: {weasyprint_error}"
-    return False, "no PDF engine found (install weasyprint or wkhtmltopdf)"
+    return False, (
+        "browser print failed and no optional PDF engine found "
+        "(open the HTML in a browser and print to PDF)"
+    )
 
 
 def _is_photo_row(row: dict[str, str], photo_col: str) -> bool:
@@ -805,17 +974,8 @@ def main() -> None:
         print(f"  {base.with_suffix('.pdf')} (single-page via {pdf_note})")
     else:
         print(f"  {base.with_suffix('.pdf')} (not generated: {pdf_note})")
-        note_lc = (pdf_note or "").lower()
-        print("  PDF setup: install one working engine, then rebuild.")
-        if "cannot load library" in note_lc or "libgobject" in note_lc:
-            print("    WeasyPrint is installed but missing native GTK/Pango runtime on Windows.")
-            print("    Easiest fix: winget install --id wkhtmltopdf.wkhtmltox --exact")
-        elif "no module named 'weasyprint'" in note_lc:
-            print(f"    {sys.executable} -m pip install weasyprint")
-            print("    or (Windows) winget install --id wkhtmltopdf.wkhtmltox --exact")
-        else:
-            print("    (Windows) winget install --id wkhtmltopdf.wkhtmltox --exact")
-            print(f"    or {sys.executable} -m pip install weasyprint")
+        print("  PDF setup: open the HTML in your browser and print to PDF.")
+        print("  Optional: install wkhtmltopdf or WeasyPrint for automated CLI PDF output.")
     tsv_notes = []
     if merged_tsv:
         tsv_notes.append("photo row merged")

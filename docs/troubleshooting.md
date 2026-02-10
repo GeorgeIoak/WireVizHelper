@@ -6,16 +6,24 @@ Use this page for common setup and build issues. Keep `README.md` focused on onb
 
 WireVizHelper attempts PDF generation in this order:
 
-1. `weasyprint` Python package
-2. `wkhtmltopdf` CLI
+1. Headless Chromium-based browser (Edge / Chrome / Chromium / Brave)
+2. `weasyprint` Python package (optional)
+3. `wkhtmltopdf` CLI (optional)
 
-If PDF fails, install `wkhtmltopdf` as fallback:
+If the browser path is unusual, set it explicitly:
 
-- Windows (PowerShell or cmd.exe): `winget install --id wkhtmltopdf.wkhtmltox --exact`
-- macOS: `brew install wkhtmltopdf`
-- Ubuntu / Debian: `sudo apt-get update && sudo apt-get install -y wkhtmltopdf`
+```bash
+# macOS / Linux
+export WIREVIZ_PDF_BROWSER=/path/to/chrome
+```
 
-If no PDF engine is available, HTML/SVG/PNG/TSV outputs should still be generated.
+```powershell
+# Windows (PowerShell)
+$env:WIREVIZ_PDF_BROWSER = "C:\Path\To\msedge.exe"
+```
+
+If PDF still fails, open the HTML output in your browser and print to PDF manually.
+HTML/SVG/PNG/TSV outputs should still be generated.
 
 ## Graphviz / `dot` Not Found
 

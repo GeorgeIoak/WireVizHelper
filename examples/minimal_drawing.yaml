@@ -2,13 +2,13 @@ connectors:
   P1:
     type: Generic Plug
     subtype: plug
-    pinlabels: [1, 2, G]
+    pinlabels: ["1", "2", G]
     pincolors: [BK, WH, GN]
 
   P2:
     type: Generic Receptacle
     subtype: receptacle
-    pinlabels: [1, 2, G]
+    pinlabels: ["1", "2", G]
     pincolors: [BK, WH, GN]
 
 cables:
@@ -18,13 +18,13 @@ cables:
     gauge: 1.5 mm2
     wirecount: 3
     colors: [BK, WH, GN]
-    wirelabels: [1, 2, G]
+    wirelabels: ["1", "2", G]
 
 connections:
   -
-    - P1: [1, 2, G]
-    - C1: [1, 2, G]
-    - P2: [1, 2, G]
+    - P1: ["1", "2", G]
+    - C1: ["1", "2", G]
+    - P2: ["1", "2", G]
 
 metadata:
   title: Minimal Example Cable
