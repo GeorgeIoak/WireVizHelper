@@ -5,6 +5,10 @@ All notable changes to **WireViz Project Assistant** will be documented here.
 
 - No changes yet.
 
+## [1.1.3] - 2026-02-10
+### Fixed
+- Bundle Tcl/Tk DLLs from the Python runtime to resolve init.tcl version conflicts.
+
 ## [1.1.2] - 2026-02-10
 ### Fixed
 - Force bundled Tcl/Tk runtime selection in frozen builds to resolve init.tcl version conflicts.

@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import sys
 import sysconfig
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
@@ -42,10 +43,18 @@ if tcl_library:
 if tk_library:
     tcl_tk_datas.append((tk_library, "_tk_data"))
 
+python_base = Path(sys.base_prefix)
+python_dlls = python_base / "DLLs"
+tcl_tk_bins = []
+for dll_name in ("tcl86t.dll", "tk86t.dll"):
+    candidate = python_dlls / dll_name
+    if candidate.exists():
+        tcl_tk_bins.append((str(candidate), "."))
+
 a = Analysis(
     ["gui.py"],
     pathex=[str(root)],
-    binaries=[],
+    binaries=tcl_tk_bins,
     datas=[
         (str(graphviz_bin), "graphviz/bin"),
         (str(starter_dir), "starter"),
