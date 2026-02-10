@@ -209,7 +209,9 @@ def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
     ]
 
 
-def run_wireviz(yaml_path: Path, passthrough: list[str], output_dir: Path) -> tuple[int, str]:
+def run_wireviz(
+    yaml_path: Path, passthrough: list[str], output_dir: Path
+) -> tuple[int, str, str, str]:
     passthrough_with_dir = ensure_output_dir_arg(passthrough, output_dir)
     cmd = wireviz_command(yaml_path, passthrough_with_dir)
     cmd_display = " ".join(cmd)
@@ -222,12 +224,24 @@ def run_wireviz(yaml_path: Path, passthrough: list[str], output_dir: Path) -> tu
         and cmd[1] == "-m"
         and cmd[2] == "wireviz"
     ):
-        return _run_wireviz_module([str(yaml_path), *passthrough_with_dir]), (
-            "wireviz " + " ".join([str(yaml_path), *passthrough_with_dir])
+        code = _run_wireviz_module([str(yaml_path), *passthrough_with_dir])
+        return (
+            code,
+            "wireviz " + " ".join([str(yaml_path), *passthrough_with_dir]),
+            "",
+            "",
         )
 
-    result = subprocess.run(cmd)
-    return result.returncode, cmd_display
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, cwd=str(yaml_path.parent)
+    )
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    if stdout:
+        print(stdout)
+    if stderr:
+        print(stderr)
+    return result.returncode, cmd_display, stdout, stderr
 
 
 def ensure_runtime_dependencies() -> None:
@@ -306,16 +320,16 @@ def wireviz_command_with_output(yaml_path: Path, passthrough: list[str], output_
 
 def prepare_local_template_for_output(
     yaml_path: Path, output_dir: Path, yaml_data: dict
-) -> None:
+) -> Path | None:
     """Ensure custom template files next to YAML are discoverable when using output dir."""
     metadata = yaml_data.get("metadata", {})
     template = metadata.get("template", {}) if isinstance(metadata, dict) else {}
     template_name = template.get("name") if isinstance(template, dict) else None
     if not isinstance(template_name, str) or not template_name.strip():
-        return
+        return None
 
     if Path(template_name).is_absolute():
-        return
+        return None
 
     src = yaml_path.parent / f"{template_name}.html"
     if not src.exists():
@@ -328,12 +342,13 @@ def prepare_local_template_for_output(
                 src = probe
                 break
     if not src.exists():
-        return
+        return None
 
     dst = output_dir / src.name
     if src.resolve() == dst.resolve():
-        return
+        return None
     shutil.copy2(src, dst)
+    return dst
 
 
 def resolve_sheetsize(yaml_data: dict) -> str:
@@ -940,10 +955,23 @@ def main() -> None:
     output_dir, output_name = resolve_output_paths(yaml_path, passthrough)
     sheetsize = resolve_sheetsize(yaml_data)
     output_dir.mkdir(parents=True, exist_ok=True)
-    prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-    result_code, cmd_display = run_wireviz(yaml_path, passthrough, output_dir)
+    copied_template = prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    result_code, cmd_display, stdout, stderr = run_wireviz(yaml_path, passthrough, output_dir)
     print(f"Running: {cmd_display}")
     if result_code != 0:
+        log_path = output_dir / "wireviz-error.log"
+        log_lines = []
+        if stdout:
+            log_lines.append("=== STDOUT ===")
+            log_lines.append(stdout)
+        if stderr:
+            log_lines.append("=== STDERR ===")
+            log_lines.append(stderr)
+        if log_lines:
+            log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+            print(f"WireViz error log: {log_path}")
+        else:
+            print("WireViz failed without output.")
         sys.exit(result_code)
 
     base = output_dir / output_name
@@ -958,6 +986,12 @@ def main() -> None:
     html_img_paths = rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
     tsv_img_paths = rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
     pdf_generated, pdf_note = generate_pdf(html_path, pdf_path, sheetsize)
+
+    if copied_template and copied_template.exists():
+        try:
+            copied_template.unlink()
+        except Exception:
+            pass
 
     print("Generated outputs:")
     html_notes = []

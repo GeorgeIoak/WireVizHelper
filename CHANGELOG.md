@@ -5,6 +5,11 @@ All notable changes to **WireViz Project Assistant** will be documented here.
 
 - No changes yet.
 
+## [1.1.4] - 2026-02-10
+### Fixed
+- Capture WireViz stdout/stderr, write `wireviz-error.log`, and surface failures in GUI/CLI.
+- Avoid leaving engineering-sheet template in output folders after build.
+
 ## [1.1.3] - 2026-02-10
 ### Fixed
 - Bundle Tcl/Tk DLLs from the Python runtime to resolve init.tcl version conflicts.

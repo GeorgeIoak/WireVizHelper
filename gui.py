@@ -65,7 +65,7 @@ def run_smoke_test(workdir: Path) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-    result_code, cmd_display = build.run_wireviz(yaml_path, [], output_dir)
+    result_code, cmd_display, _, _ = build.run_wireviz(yaml_path, [], output_dir)
     print(f"Smoke test WireViz command: {cmd_display}")
     if result_code != 0:
         print(f"Smoke test failed: WireViz returned {result_code}")
@@ -372,9 +372,24 @@ def run_build_gui():
                 output_dir.mkdir(parents=True, exist_ok=True)
 
                 build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-                result_code, _ = build.run_wireviz(yaml_path, passthrough, output_dir)
+                result_code, _, stdout, stderr = build.run_wireviz(yaml_path, passthrough, output_dir)
                 if result_code != 0:
-                    sg.popup_error("Build failed. Check YAML and command options, then try again.")
+                    log_path = output_dir / "wireviz-error.log"
+                    log_lines = []
+                    if stdout:
+                        log_lines.append("=== STDOUT ===")
+                        log_lines.append(stdout)
+                    if stderr:
+                        log_lines.append("=== STDERR ===")
+                        log_lines.append(stderr)
+                    if log_lines:
+                        log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+                        sg.popup_error(
+                            "Build failed.\n\n"
+                            f"See log:\n{log_path}"
+                        )
+                    else:
+                        sg.popup_error("Build failed. Check YAML and command options, then try again.")
                     continue
 
                 base = output_dir / output_name
