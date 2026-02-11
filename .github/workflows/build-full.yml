@@ -8,7 +8,7 @@ name: Build Full Portable EXE
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows, local]
 
     steps:
       - uses: actions/checkout@v4
