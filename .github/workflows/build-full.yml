@@ -105,6 +105,11 @@ jobs:
         run: |
           $yaml = (Resolve-Path .\starter\drawing.yaml).Path
           $outdir = Join-Path $PWD "ci-gui-full"
+          $tempDir = Join-Path $PWD "ci-temp"
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          $env:TEMP = $tempDir
+          $env:TMP = $tempDir
+          $env:WIREVIZ_PDF_BROWSER = "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: Verify GUI outputs (full)
