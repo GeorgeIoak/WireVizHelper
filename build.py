@@ -24,6 +24,7 @@ import subprocess
 import sys
 from os.path import relpath
 from pathlib import Path
+from urllib.parse import quote
 try:
     import yaml
 except ModuleNotFoundError:
@@ -393,13 +394,23 @@ def resolve_sheetsize(yaml_data: dict) -> str:
 
 
 def _path_for_chromium_arg(path: Path) -> str:
+    """Return a path string suitable for Chromium CLI flags on any OS."""
+    resolved = str(path.resolve())
     if os.name == "nt":
-        return path.as_posix()
-    return str(path)
+        if resolved.startswith("\\\\?\\"):
+            resolved = resolved[4:]
+        return resolved.replace("\\", "/")
+    return resolved
 
 
 def _file_uri(path: Path) -> str:
-    return path.resolve().as_uri()
+    """Build a file:/// URI from a path, safe on all Windows Python versions."""
+    resolved = str(path.resolve())
+    # Strip \\?\ extended-length prefix that Windows can produce
+    if resolved.startswith("\\\\?\\"):
+        resolved = resolved[4:]
+    posix = resolved.replace("\\", "/")
+    return "file:///" + quote(posix, safe=":/@")
 
 
 def _css_page_size(sheetsize: str) -> str:
@@ -508,7 +519,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
     try:
         html_text = html_path.read_text(encoding="utf-8")
         css_size = _css_page_size(sheetsize)
-        base_href = html_path.parent.resolve().as_uri().rstrip("/") + "/"
+        base_href = _file_uri(html_path.parent).rstrip("/") + "/"
         base_tag = f'<base href="{base_href}">'
         style_block = (
             "<style>"
@@ -552,6 +563,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     "--no-default-browser-check",
                     "--landscape",
                     "--allow-file-access-from-files",
+                    "--allow-file-access",
                     f"--user-data-dir={profile_dir}",
                     "--no-pdf-header-footer",
                     f"--print-to-pdf={pdf_arg}",
@@ -645,10 +657,21 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
         if result.returncode == 0:
             return True, "wkhtmltopdf"
         wk_error = (result.stderr or result.stdout).strip() or "unknown error"
-        return False, f"weasyprint failed ({weasyprint_error}); wkhtmltopdf failed ({wk_error})"
+        parts = []
+        if browser_note:
+            parts.append(f"browser: {browser_note}")
+        if weasyprint_error:
+            parts.append(f"weasyprint: {weasyprint_error}")
+        parts.append(f"wkhtmltopdf: {wk_error}")
+        return False, f"PDF engine failed: {'; '.join(parts)}"
 
+    parts = []
+    if browser_note:
+        parts.append(f"browser: {browser_note}")
     if weasyprint_error:
-        return False, f"PDF engine failed: {weasyprint_error}"
+        parts.append(f"weasyprint: {weasyprint_error}")
+    if parts:
+        return False, f"PDF engine failed: {'; '.join(parts)}"
     return False, (
         "browser print failed and no optional PDF engine found "
         "(open the HTML in a browser and print to PDF)"
