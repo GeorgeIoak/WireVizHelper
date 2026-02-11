@@ -431,15 +431,18 @@
       body {
         margin: 0 !important;
         padding: 0 !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
       #sheet {
         margin: 0 !important;
         box-shadow: none;
+      }
+      #diagram-panel,
+      #notes-panel,
+      #bom-panel,
+      #title-block {
+        border: 1px solid var(--line) !important;
       }
       #notes-panel,
       #bom {

@@ -54,6 +54,10 @@ PDF_PAPER_CLASS: dict[str, str] = {
     "LETTER": "LETTER",
     "TABLOID": "TABLOID",
 }
+PDF_PAPER_PAGE_SIZE: dict[str, str] = {
+    "LETTER": "Letter",
+    "TABLOID": "Tabloid",
+}
 
 
 def _runtime_roots() -> list[Path]:
@@ -437,7 +441,7 @@ def _normalize_pdf_paper(paper: str | None) -> str | None:
 
 
 def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
-    """Create a temporary HTML variant with #sheet class forced for PDF paper size."""
+    """Create a temporary HTML variant with fixed paper class and @page size."""
     normalized = _normalize_pdf_paper(paper)
     if not normalized:
         return html_path
@@ -454,6 +458,22 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
     if count == 0:
         # Fallback to source HTML when template structure is unexpected.
         return html_path
+
+    page_size = PDF_PAPER_PAGE_SIZE[normalized]
+    print_style = (
+        '<style id="wireviz-pdf-paper">'
+        "@media print {"
+        f"@page {{ size: {page_size} landscape; margin: 0; }}"
+        "html, body { margin: 0 !important; padding: 0 !important; }"
+        "body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }"
+        "#sheet { margin: 0 !important; box-shadow: none; }"
+        "}"
+        "</style>"
+    )
+    if "</head>" in updated:
+        updated = updated.replace("</head>", f"{print_style}</head>", 1)
+    else:
+        updated = print_style + updated
 
     temp_path = html_path.with_name(f"{html_path.stem}.pdf-{normalized.lower()}.html")
     temp_path.write_text(updated, encoding="utf-8")
