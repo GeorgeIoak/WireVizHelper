@@ -3,6 +3,8 @@ import argparse
 import csv
 import os
 import shlex
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -64,11 +66,25 @@ def run_smoke_test(workdir: Path) -> int:
     output_dir, output_name = build.resolve_output_paths(yaml_path, [])
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    _append_smoke_debug(output_dir, "=== SMOKE DEBUG START ===")
+    _append_smoke_debug(output_dir, f"YAML: {yaml_path}")
+    _append_smoke_debug(output_dir, f"OUTPUT_DIR: {output_dir}")
+    _append_smoke_debug(output_dir, f"PATH: {os.environ.get('PATH','')}")
+    _append_smoke_debug(output_dir, f"GRAPHVIZ_DOT: {os.environ.get('GRAPHVIZ_DOT','')}")
+    _append_smoke_debug(output_dir, f"GVBINDIR: {os.environ.get('GVBINDIR','')}")
+    _append_smoke_debug(output_dir, f"GVPLUGIN_PATH: {os.environ.get('GVPLUGIN_PATH','')}")
+    _append_smoke_debug(output_dir, f"GVCONFDIR: {os.environ.get('GVCONFDIR','')}")
+
     copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
     result_code, cmd_display, stdout, stderr = build.run_wireviz(yaml_path, [], output_dir)
     print(f"Smoke test WireViz command: {cmd_display}")
     if result_code != 0:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"WIREVIZ EXIT: {result_code}")
+        if stdout:
+            _append_smoke_debug(output_dir, f"WIREVIZ STDOUT:\n{stdout}")
+        if stderr:
+            _append_smoke_debug(output_dir, f"WIREVIZ STDERR:\n{stderr}")
         print(f"Smoke test failed: WireViz returned {result_code}")
         return result_code
 
@@ -82,6 +98,8 @@ def run_smoke_test(workdir: Path) -> int:
     # Diagnostic: explicitly run Graphviz on the generated DOT to capture errors.
     dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
     dot_input = base.with_suffix(".tmp")
+    _append_smoke_debug(output_dir, f"DOT_PATH: {dot_path or ''}")
+    _append_smoke_debug(output_dir, f"DOT_INPUT_EXISTS: {dot_input.exists()}")
     if dot_path and dot_input.exists():
         diag_svg = output_dir / "diagnostic.dot.svg"
         try:
@@ -90,10 +108,22 @@ def run_smoke_test(workdir: Path) -> int:
                 capture_output=True,
                 text=True,
             )
+            _append_smoke_debug(
+                output_dir,
+                "DOT -V STDOUT:\n" + (version.stdout or "") +
+                "\nDOT -V STDERR:\n" + (version.stderr or "") +
+                f"\nDOT -V EXIT: {version.returncode}",
+            )
             render = subprocess.run(
                 [dot_path, "-Tsvg", str(dot_input), "-o", str(diag_svg)],
                 capture_output=True,
                 text=True,
+            )
+            _append_smoke_debug(
+                output_dir,
+                "DOT RENDER STDOUT:\n" + (render.stdout or "") +
+                "\nDOT RENDER STDERR:\n" + (render.stderr or "") +
+                f"\nDOT RENDER EXIT: {render.returncode}",
             )
             if version.returncode != 0 or render.returncode != 0:
                 _write_wireviz_log(
@@ -104,6 +134,7 @@ def run_smoke_test(workdir: Path) -> int:
                     (version.stderr or "") + (render.stderr or ""),
                 )
         except Exception as e:
+            _append_smoke_debug(output_dir, f"DOT DIAGNOSTIC EXCEPTION: {e}")
             _write_wireviz_log(
                 output_dir,
                 f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
@@ -124,6 +155,7 @@ def run_smoke_test(workdir: Path) -> int:
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"MISSING OUTPUTS: {missing}")
         print("Smoke test failed: Missing required outputs:")
         for p in missing:
             print(f"  - {p}")
@@ -137,6 +169,7 @@ def run_smoke_test(workdir: Path) -> int:
     empty = [str(p) for p in required if p.stat().st_size <= 0]
     if empty:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"EMPTY OUTPUTS: {empty}")
         print("Smoke test failed: Empty output files:")
         for p in empty:
             print(f"  - {p}")
@@ -145,6 +178,7 @@ def run_smoke_test(workdir: Path) -> int:
     svg_head = svg_path.read_text(encoding="utf-8", errors="ignore")[:512].lower()
     if "<svg" not in svg_head:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"SVG SIGNATURE MISSING: {svg_path}")
         print(f"Smoke test failed: SVG signature not found in {svg_path}")
         return 1
 
@@ -152,6 +186,7 @@ def run_smoke_test(workdir: Path) -> int:
         png_sig = f.read(8)
     if png_sig != b"\x89PNG\r\n\x1a\n":
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"PNG SIGNATURE MISMATCH: {png_path}")
         print(f"Smoke test failed: PNG signature mismatch in {png_path}")
         return 1
 
@@ -159,12 +194,14 @@ def run_smoke_test(workdir: Path) -> int:
         pdf_sig = f.read(5)
     if pdf_sig != b"%PDF-":
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, f"PDF SIGNATURE MISMATCH: {pdf_path}")
         print(f"Smoke test failed: PDF signature mismatch in {pdf_path}")
         return 1
 
     html_text = html_path.read_text(encoding="utf-8", errors="ignore")
     if "Product Photo" not in html_text:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, "HTML HEADER MISSING: Product Photo")
         print("Smoke test failed: 'Product Photo' header not found in HTML output")
         return 1
 
@@ -173,10 +210,12 @@ def run_smoke_test(workdir: Path) -> int:
         header = next(reader, [])
     if "Product Photo" not in header:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, "TSV HEADER MISSING: Product Photo")
         print("Smoke test failed: 'Product Photo' header not found in TSV output")
         return 1
     if "SPN" in header:
         _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+        _append_smoke_debug(output_dir, "TSV HEADER STILL CONTAINS: SPN")
         print("Smoke test failed: Legacy 'SPN' header still present in TSV output")
         return 1
 
@@ -244,6 +283,15 @@ def _write_wireviz_log(
         log_lines.append(stderr)
     log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
     return log_path
+
+
+def _append_smoke_debug(output_dir: Path, text: str) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    debug_path = output_dir / "smoke-debug.log"
+    with debug_path.open("a", encoding="utf-8") as f:
+        f.write(text)
+        if not text.endswith("\n"):
+            f.write("\n")
 
 
 def run_build_scripted(
