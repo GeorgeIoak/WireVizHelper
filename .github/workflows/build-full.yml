@@ -171,5 +171,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: WireVizProjectAssistant-full
+          name: WireVizHelper
           path: dist/WireVizProjectAssistant/**

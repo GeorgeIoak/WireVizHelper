@@ -28,14 +28,14 @@ The core focus is the Python build pipeline and engineering-sheet output. The **
 
 You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 
-- GitHub Actions artifact `WireVizProjectAssistant-full`: portable folder payload (single extraction, no nested zip).
-- GitHub Release asset `WireVizProjectAssistant-full.zip`: portable folder build (EXE + bundled runtime files).
+- GitHub Actions artifact `WireVizHelper`: portable folder payload (single extraction, no nested zip).
+- GitHub Release asset `WireVizHelper.zip`: portable folder build (EXE + bundled runtime files).
 
 The supported Windows distribution is the portable full package.
 
 ## Install And Use (Windows Release)
 
-1. Download `WireVizProjectAssistant-full` artifact (Actions) or `WireVizProjectAssistant-full.zip` (Release).
+1. Download `WireVizHelper` artifact (Actions) or `WireVizHelper.zip` (Release).
 2. Extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
 3. Run `WireVizProjectAssistant.exe` from the extracted folder.
 4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.

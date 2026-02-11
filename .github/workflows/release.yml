@@ -201,12 +201,12 @@ jobs:
 
       - name: Archive portable build
         shell: pwsh
-        run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizProjectAssistant-full.zip
+        run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizHelper.zip
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/WireVizProjectAssistant-full.zip
+            dist/WireVizHelper.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
