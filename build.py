@@ -489,7 +489,7 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
             f"body::before {{ content: 'OVERRIDE ACTIVE {normalized}'; "
             "position: fixed; top: 2mm; left: 2mm; font-size: 10pt; "
             "font-weight: 700; color: #aa0000; z-index: 999999; "
-            "background: rgba(255,255,255,0.75); padding: 1mm 2mm; }}"
+            "background: rgba(255,255,255,0.75); padding: 1mm 2mm; }"
         )
     print_style = (
         '<style id="wireviz-pdf-paper">'
