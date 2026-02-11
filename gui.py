@@ -40,6 +40,7 @@ def _load_gui_lib():
 
 def run_smoke_test(workdir: Path) -> int:
     """Headless end-to-end check for packaged runtime in CI."""
+    output_dir = None
     try:
         workdir.mkdir(parents=True, exist_ok=True)
         class Args:
@@ -129,12 +130,25 @@ def run_smoke_test(workdir: Path) -> int:
         tsv_path = Path(f"{base}.bom.tsv")
         pdf_path = base.with_suffix(".pdf")
 
-        # Diagnostic: explicitly run Graphviz on the generated DOT to capture errors.
-        try:
-            dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
-            dot_input = base.with_suffix(".tmp")
-            _append_smoke_debug(output_dir, f"DOT_PATH: {dot_path or ''}")
-            _append_smoke_debug(output_dir, f"DOT_INPUT_EXISTS: {dot_input.exists()}")
+        # If outputs are missing, run Graphviz diagnostics after WireViz to capture render errors.
+        dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
+        dot_input = base.with_suffix(".tmp")
+        _append_smoke_debug(output_dir, f"DOT_PATH: {dot_path or ''}")
+        _append_smoke_debug(output_dir, f"DOT_INPUT_EXISTS: {dot_input.exists()}")
+
+        build.merge_photo_rows_in_tsv(tsv_path)
+        build.merge_photo_rows_in_html(html_path)
+        build.rename_header_in_html(html_path)
+        build.rename_header_in_tsv(tsv_path)
+        build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
+        build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
+        pdf_generated, pdf_note = build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+
+        required = [html_path, svg_path, png_path, tsv_path, pdf_path]
+        missing = [str(p) for p in required if not p.exists()]
+        if missing:
+            _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
+            _append_smoke_debug(output_dir, f"MISSING OUTPUTS: {missing}")
             if dot_path and dot_input.exists():
                 diag_svg = output_dir / "diagnostic.dot.svg"
                 try:
@@ -177,22 +191,6 @@ def run_smoke_test(workdir: Path) -> int:
                         "",
                         f"Graphviz diagnostic failed: {e}",
                     )
-        except Exception as e:
-            _append_smoke_debug(output_dir, f"DOT DIAGNOSTIC OUTER EXCEPTION: {e}")
-
-        build.merge_photo_rows_in_tsv(tsv_path)
-        build.merge_photo_rows_in_html(html_path)
-        build.rename_header_in_html(html_path)
-        build.rename_header_in_tsv(tsv_path)
-        build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
-        build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-        pdf_generated, pdf_note = build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
-
-        required = [html_path, svg_path, png_path, tsv_path, pdf_path]
-        missing = [str(p) for p in required if not p.exists()]
-        if missing:
-            _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
-            _append_smoke_debug(output_dir, f"MISSING OUTPUTS: {missing}")
             print("Smoke test failed: Missing required outputs:")
             for p in missing:
                 print(f"  - {p}")
@@ -260,13 +258,9 @@ def run_smoke_test(workdir: Path) -> int:
         for p in [html_path, svg_path, png_path, tsv_path, pdf_path]:
             print(f"  - {p}")
         return 0
-    except Exception:
-        debug_dir = None
-        try:
-            debug_dir = output_dir
-        except Exception:
-            debug_dir = workdir
-        _append_smoke_debug(Path(debug_dir), "UNHANDLED SMOKE EXCEPTION:\n" + traceback.format_exc())
+    except BaseException:
+        debug_dir = output_dir or workdir
+        _append_smoke_debug(Path(debug_dir), "UNHANDLED SMOKE BASE EXCEPTION:\n" + traceback.format_exc())
         return 1
 
 
