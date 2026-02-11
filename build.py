@@ -16,6 +16,7 @@ import importlib.util
 import os
 import site
 import sysconfig
+import time
 import re
 import runpy
 import shutil
@@ -422,6 +423,33 @@ def _pdf_looks_like_error_page(pdf_path: Path) -> bool:
     )
 
 
+def _wait_for_pdf_ready(pdf_path: Path, timeout_s: float = 2.5, step_s: float = 0.05) -> bool:
+    """Wait briefly for browser PDF output to appear and become non-empty."""
+    end = time.time() + timeout_s
+    last_size = -1
+    stable_hits = 0
+    while time.time() < end:
+        try:
+            size = pdf_path.stat().st_size
+        except FileNotFoundError:
+            time.sleep(step_s)
+            continue
+        except Exception:
+            time.sleep(step_s)
+            continue
+        if size > 0:
+            if size == last_size:
+                stable_hits += 1
+            else:
+                stable_hits = 0
+            last_size = size
+            # Two consecutive equal size reads reduces false positives.
+            if stable_hits >= 1:
+                return True
+        time.sleep(step_s)
+    return False
+
+
 def _browser_candidates() -> list[tuple[str, str]]:
     """Return candidate Chromium-based browsers for headless PDF export."""
     candidates: list[tuple[str, str]] = []
@@ -532,7 +560,8 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                 last_error = f"browser not found: {browser}"
                 attempts.append(f"{label}:{browser} {headless}: not found")
                 continue
-            if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
+            pdf_ready = _wait_for_pdf_ready(pdf_path) if result.returncode == 0 else False
+            if pdf_ready:
                 if _pdf_looks_like_error_page(pdf_path):
                     try:
                         pdf_path.unlink()
