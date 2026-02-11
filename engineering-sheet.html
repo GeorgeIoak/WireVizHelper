@@ -44,33 +44,43 @@
     }
 
     .A4, .sheetsize_default {
-      width: 277mm;
-      height: 190mm;
+      width: 297mm;
+      height: 210mm;
     }
 
     .LETTER, .Letter {
-      width: 259.4mm;
-      height: 195.9mm;
+      width: 279mm;
+      height: 216mm;
     }
 
     .LEGAL, .Legal {
-      width: 335.6mm;
-      height: 195.9mm;
+      width: 356mm;
+      height: 216mm;
     }
 
     .TABLOID, .Tabloid {
-      width: 406.4mm;
-      height: 259.4mm;
+      width: 432mm;
+      height: 279mm;
     }
 
     .A3 {
-      width: 400mm;
-      height: 277mm;
+      width: 420mm;
+      height: 297mm;
     }
 
     .A2 {
-      width: 564mm;
-      height: 400mm;
+      width: 594mm;
+      height: 420mm;
+    }
+
+    .A1 {
+      width: 841mm;
+      height: 594mm;
+    }
+
+    .A0 {
+      width: 1189mm;
+      height: 841mm;
     }
 
     #work-area {
@@ -351,19 +361,85 @@
     }
 
     @media print {
+      @page {
+        margin: 0;
+      }
+      @page sheet_a4 {
+        size: A4 landscape;
+        margin: 0;
+      }
+      @page sheet_a3 {
+        size: A3 landscape;
+        margin: 0;
+      }
+      @page sheet_a2 {
+        size: A2 landscape;
+        margin: 0;
+      }
+      @page sheet_a1 {
+        size: A1 landscape;
+        margin: 0;
+      }
+      @page sheet_a0 {
+        size: A0 landscape;
+        margin: 0;
+      }
+      @page sheet_letter {
+        size: Letter landscape;
+        margin: 0;
+      }
+      @page sheet_legal {
+        size: Legal landscape;
+        margin: 0;
+      }
+      @page sheet_tabloid {
+        size: Tabloid landscape;
+        margin: 0;
+      }
+      #sheet.A4,
+      #sheet.sheetsize_default {
+        page: sheet_a4;
+      }
+      #sheet.A3 {
+        page: sheet_a3;
+      }
+      #sheet.A2 {
+        page: sheet_a2;
+      }
+      #sheet.A1 {
+        page: sheet_a1;
+      }
+      #sheet.A0 {
+        page: sheet_a0;
+      }
+      #sheet.LETTER,
+      #sheet.Letter {
+        page: sheet_letter;
+      }
+      #sheet.LEGAL,
+      #sheet.Legal {
+        page: sheet_legal;
+      }
+      #sheet.TABLOID,
+      #sheet.Tabloid {
+        page: sheet_tabloid;
+      }
       html, body {
         width: 100%;
         height: 100%;
       }
       body {
-        margin: 0;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
         display: flex;
         align-items: center;
         justify-content: center;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       #sheet {
-        margin: 0 auto;
+        margin: 0 !important;
+        box-shadow: none;
       }
       #notes-panel,
       #bom {
