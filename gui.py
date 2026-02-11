@@ -79,6 +79,39 @@ def run_smoke_test(workdir: Path) -> int:
     tsv_path = Path(f"{base}.bom.tsv")
     pdf_path = base.with_suffix(".pdf")
 
+    # Diagnostic: explicitly run Graphviz on the generated DOT to capture errors.
+    dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
+    dot_input = base.with_suffix(".tmp")
+    if dot_path and dot_input.exists():
+        diag_svg = output_dir / "diagnostic.dot.svg"
+        try:
+            version = subprocess.run(
+                [dot_path, "-V"],
+                capture_output=True,
+                text=True,
+            )
+            render = subprocess.run(
+                [dot_path, "-Tsvg", str(dot_input), "-o", str(diag_svg)],
+                capture_output=True,
+                text=True,
+            )
+            if version.returncode != 0 or render.returncode != 0:
+                _write_wireviz_log(
+                    output_dir,
+                    f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
+                    render.returncode,
+                    (version.stdout or "") + (render.stdout or ""),
+                    (version.stderr or "") + (render.stderr or ""),
+                )
+        except Exception as e:
+            _write_wireviz_log(
+                output_dir,
+                f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
+                1,
+                "",
+                f"Graphviz diagnostic failed: {e}",
+            )
+
     build.merge_photo_rows_in_tsv(tsv_path)
     build.merge_photo_rows_in_html(html_path)
     build.rename_header_in_html(html_path)
@@ -90,6 +123,7 @@ def run_smoke_test(workdir: Path) -> int:
     required = [html_path, svg_path, png_path, tsv_path, pdf_path]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print("Smoke test failed: Missing required outputs:")
         for p in missing:
             print(f"  - {p}")
@@ -102,6 +136,7 @@ def run_smoke_test(workdir: Path) -> int:
     # Verify files are non-empty and contain expected signatures/content.
     empty = [str(p) for p in required if p.stat().st_size <= 0]
     if empty:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print("Smoke test failed: Empty output files:")
         for p in empty:
             print(f"  - {p}")
@@ -109,23 +144,27 @@ def run_smoke_test(workdir: Path) -> int:
 
     svg_head = svg_path.read_text(encoding="utf-8", errors="ignore")[:512].lower()
     if "<svg" not in svg_head:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print(f"Smoke test failed: SVG signature not found in {svg_path}")
         return 1
 
     with png_path.open("rb") as f:
         png_sig = f.read(8)
     if png_sig != b"\x89PNG\r\n\x1a\n":
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print(f"Smoke test failed: PNG signature mismatch in {png_path}")
         return 1
 
     with pdf_path.open("rb") as f:
         pdf_sig = f.read(5)
     if pdf_sig != b"%PDF-":
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print(f"Smoke test failed: PDF signature mismatch in {pdf_path}")
         return 1
 
     html_text = html_path.read_text(encoding="utf-8", errors="ignore")
     if "Product Photo" not in html_text:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print("Smoke test failed: 'Product Photo' header not found in HTML output")
         return 1
 
@@ -133,9 +172,11 @@ def run_smoke_test(workdir: Path) -> int:
         reader = csv.reader(f, delimiter="\t")
         header = next(reader, [])
     if "Product Photo" not in header:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print("Smoke test failed: 'Product Photo' header not found in TSV output")
         return 1
     if "SPN" in header:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print("Smoke test failed: Legacy 'SPN' header still present in TSV output")
         return 1
 
