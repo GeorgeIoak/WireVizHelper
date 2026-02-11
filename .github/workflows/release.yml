@@ -169,23 +169,27 @@ jobs:
         with:
           name: smoke-outputs-full
           path: ci-smoke-full/**
+          retention-days: 14
 
       - uses: actions/upload-artifact@v4
         with:
           name: smoke-outputs-simple
           path: ci-smoke-simple/**
+          retention-days: 14
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: smoke-outputs-full-failed
           path: ci-smoke-full/**
+          retention-days: 14
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: smoke-outputs-simple-failed
           path: ci-smoke-simple/**
+          retention-days: 14
 
       - name: Archive portable build
         shell: pwsh

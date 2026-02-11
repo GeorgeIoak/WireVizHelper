@@ -491,6 +491,8 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
     try:
         html_text = html_path.read_text(encoding="utf-8")
         css_size = _css_page_size(sheetsize)
+        base_href = html_path.parent.resolve().as_uri().rstrip("/") + "/"
+        base_tag = f'<base href="{base_href}">'
         style_block = (
             "<style>"
             f"@page {{ size: {css_size} landscape; margin: 0; }}"
@@ -498,9 +500,9 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
             "</style>"
         )
         if "</head>" in html_text:
-            html_text = html_text.replace("</head>", f"{style_block}</head>", 1)
+            html_text = html_text.replace("</head>", f"{base_tag}{style_block}</head>", 1)
         else:
-            html_text = style_block + html_text
+            html_text = base_tag + style_block + html_text
         html_for_print = html_path.with_suffix(".print.html")
         html_for_print.write_text(html_text, encoding="utf-8")
         injected = True
