@@ -58,6 +58,11 @@ PDF_PAPER_PAGE_SIZE: dict[str, str] = {
     "LETTER": "Letter",
     "TABLOID": "Tabloid",
 }
+PDF_PAPER_MM: dict[str, tuple[int, int]] = {
+    "LETTER": (279, 216),
+    "TABLOID": (432, 279),
+}
+_SHEET_SIZE_CLASSES = {"A0", "A1", "A2", "A3", "A4", "LETTER", "TABLOID"}
 
 
 def _runtime_roots() -> list[Path]:
@@ -448,9 +453,18 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
 
     content = html_path.read_text(encoding="utf-8")
     target_class = PDF_PAPER_CLASS[normalized]
+    pattern = r'(<div\b[^>]*\bid="sheet"[^>]*\bclass=")([^"]*)(")'
+
+    def _replace_sheet_class(match: re.Match[str]) -> str:
+        existing_classes = match.group(2).split()
+        # Preserve non-size classes (layout/theme hooks), replace only paper class.
+        kept = [c for c in existing_classes if c.upper() not in _SHEET_SIZE_CLASSES]
+        kept.append(target_class)
+        return f'{match.group(1)}{" ".join(kept)}{match.group(3)}'
+
     updated, count = re.subn(
-        r'(<div\b[^>]*\bid="sheet"[^>]*\bclass=")([^"]*)(")',
-        rf"\1{target_class}\3",
+        pattern,
+        _replace_sheet_class,
         content,
         count=1,
         flags=re.IGNORECASE,
@@ -460,13 +474,14 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
         return html_path
 
     page_size = PDF_PAPER_PAGE_SIZE[normalized]
+    width_mm, height_mm = PDF_PAPER_MM[normalized]
     print_style = (
         '<style id="wireviz-pdf-paper">'
         "@media print {"
         f"@page {{ size: {page_size} landscape; margin: 0; }}"
         "html, body { margin: 0 !important; padding: 0 !important; }"
         "body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }"
-        "#sheet { margin: 0 !important; box-shadow: none; }"
+        f"#sheet {{ width: {width_mm}mm !important; height: {height_mm}mm !important; margin: 0 !important; box-shadow: none; }}"
         "}"
         "</style>"
     )
