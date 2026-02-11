@@ -197,6 +197,7 @@ def run_smoke_test(workdir: Path) -> int:
             return 1
 
         if not pdf_generated:
+            _write_pdf_log(output_dir, pdf_note)
             print(f"Smoke test failed: PDF was not generated ({pdf_note})")
             return 1
 
@@ -324,6 +325,13 @@ def _write_wireviz_log(
     return log_path
 
 
+def _write_pdf_log(output_dir: Path, note: str | None) -> Path:
+    log_path = output_dir / "pdf-error.log"
+    message = note.strip() if isinstance(note, str) and note.strip() else "PDF generation failed."
+    log_path.write_text(message + "\n", encoding="utf-8")
+    return log_path
+
+
 def _append_smoke_debug(output_dir: Path, text: str) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     debug_path = output_dir / "smoke-debug.log"
@@ -396,6 +404,7 @@ def run_build_scripted(
             print(f"  - {p}")
         return 1
     if not pdf_generated:
+        _write_pdf_log(output_dir, pdf_note)
         print(f"Build failed: PDF was not generated ({pdf_note})")
         return 1
     return 0
@@ -644,13 +653,24 @@ def run_build_gui():
                 build.rename_header_in_tsv(tsv_path)
                 build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
                 build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-                build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+                pdf_generated, pdf_note = build.generate_pdf(
+                    html_path, pdf_path, build.resolve_sheetsize(yaml_data)
+                )
 
                 if copied_template and copied_template.exists():
                     try:
                         copied_template.unlink()
                     except Exception:
                         pass
+
+                if not pdf_generated:
+                    _write_pdf_log(output_dir, pdf_note)
+                    sg.popup_error(
+                        "PDF generation failed.\n\n"
+                        f"Reason:\n{pdf_note}\n\n"
+                        f"See log:\n{output_dir / 'pdf-error.log'}"
+                    )
+                    continue
 
                 sg.popup_ok(f"Build complete.\nOutput folder:\n{output_dir}")
 
