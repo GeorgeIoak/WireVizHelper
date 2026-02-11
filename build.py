@@ -588,6 +588,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                 headless,
                 "--landscape",
                 "--no-pdf-header-footer",
+                "--print-to-pdf-no-header",
                 f"--print-to-pdf={pdf_arg}",
                 html_url,
             ]
