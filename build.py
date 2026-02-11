@@ -446,6 +446,14 @@ def _normalize_pdf_paper(paper: str | None) -> str | None:
     return key if key in PDF_PAPER_CLASS else None
 
 
+def _keep_pdf_temp_enabled() -> bool:
+    return os.environ.get("WIREVIZ_PDF_KEEP_TEMP", "").strip() == "1"
+
+
+def _pdf_debug_watermark_enabled() -> bool:
+    return os.environ.get("WIREVIZ_PDF_DEBUG_WATERMARK", "").strip() == "1"
+
+
 def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
     """Create a temporary HTML variant with fixed paper class and @page size."""
     normalized = _normalize_pdf_paper(paper)
@@ -471,17 +479,25 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
         flags=re.IGNORECASE,
     )
     if count == 0:
-        # Fallback to source HTML when template structure is unexpected.
-        return html_path
+        raise RuntimeError("could not locate #sheet class attribute for paper override")
 
     page_size = PDF_PAPER_PAGE_SIZE[normalized]
     width_mm, height_mm = PDF_PAPER_MM[normalized]
+    debug_watermark = ""
+    if _pdf_debug_watermark_enabled():
+        debug_watermark = (
+            f"body::before {{ content: 'OVERRIDE ACTIVE {normalized}'; "
+            "position: fixed; top: 2mm; left: 2mm; font-size: 10pt; "
+            "font-weight: 700; color: #aa0000; z-index: 999999; "
+            "background: rgba(255,255,255,0.75); padding: 1mm 2mm; }}"
+        )
     print_style = (
         '<style id="wireviz-pdf-paper">'
         "@media print {"
         f"@page {{ size: {page_size} landscape; margin: 0; }}"
         "html, body { margin: 0 !important; padding: 0 !important; }"
         "body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }"
+        f"{debug_watermark}"
         f"#sheet {{ page: auto !important; width: {width_mm}mm !important; height: {height_mm}mm !important; margin: 0 !important; box-shadow: none; overflow: hidden !important; }}"
         "#notes-panel, #bom { overflow: hidden !important; }"
         "}"
@@ -678,10 +694,15 @@ def generate_pdf(
         except Exception:
             pass
 
-    pdf_html_path = _prepare_pdf_html_for_paper(html_path, paper_override)
+    try:
+        pdf_html_path = _prepare_pdf_html_for_paper(html_path, paper_override)
+    except Exception as e:
+        return False, f"PDF paper override failed: {e}"
+
+    keep_temp = _keep_pdf_temp_enabled()
     browser_ok, browser_note = generate_pdf_via_browser(pdf_html_path, pdf_path, sheetsize)
     if browser_ok:
-        if pdf_html_path != html_path:
+        if pdf_html_path != html_path and not keep_temp:
             try:
                 pdf_html_path.unlink()
             except Exception:
@@ -690,7 +711,7 @@ def generate_pdf(
 
     # Packaged app behavior: browser is the only default PDF engine.
     if is_frozen_app():
-        if pdf_html_path != html_path:
+        if pdf_html_path != html_path and not keep_temp:
             try:
                 pdf_html_path.unlink()
             except Exception:
@@ -714,7 +735,7 @@ def generate_pdf(
         HTML(filename=str(pdf_html_path), base_url=str(pdf_html_path.parent)).write_pdf(
             str(pdf_path), stylesheets=[css]
         )
-        if pdf_html_path != html_path:
+        if pdf_html_path != html_path and not keep_temp:
             try:
                 pdf_html_path.unlink()
             except Exception:
@@ -747,7 +768,7 @@ def generate_pdf(
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
-            if pdf_html_path != html_path:
+            if pdf_html_path != html_path and not keep_temp:
                 try:
                     pdf_html_path.unlink()
                 except Exception:
@@ -768,13 +789,13 @@ def generate_pdf(
     if weasyprint_error:
         parts.append(f"weasyprint: {weasyprint_error}")
     if parts:
-        if pdf_html_path != html_path:
+        if pdf_html_path != html_path and not keep_temp:
             try:
                 pdf_html_path.unlink()
             except Exception:
                 pass
         return False, f"PDF engine failed: {'; '.join(parts)}"
-    if pdf_html_path != html_path:
+    if pdf_html_path != html_path and not keep_temp:
         try:
             pdf_html_path.unlink()
         except Exception:
