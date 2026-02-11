@@ -8,7 +8,7 @@ name: Build Full Portable EXE
 
 jobs:
   build:
-    runs-on: [self-hosted, windows, local]
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -44,10 +44,27 @@ jobs:
       - name: Build full EXE
         run: python -m PyInstaller WireVizProjectAssistant.spec
 
-      - name: Smoke test packaged full EXE
+      - name: Build console EXE (diagnostics)
+        run: python -m PyInstaller WireVizProjectAssistant.ci.spec
+
+      - name: Diagnostic environment dump
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+          "=== ENV ==="
+          Get-ChildItem Env:* | Sort-Object Name | Format-Table -AutoSize
+          "=== where dot ==="
+          where.exe dot
+          "=== dot -V ==="
+          & ".\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe" --version
+
+      - name: Smoke test packaged console EXE
+        shell: pwsh
+        run: |
+          $tempDir = Join-Path $PWD "ci-temp"
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          $env:TEMP = $tempDir
+          $env:TMP = $tempDir
+          .\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe --smoke-test --workdir .\ci-smoke-full
       
       - name: List smoke outputs (full)
         shell: pwsh
@@ -58,6 +75,11 @@ jobs:
           if (Test-Path $log) {
             "---- wireviz-error.log ----"
             Get-Content $log
+          }
+          $debug = Join-Path $PWD "ci-smoke-full\\Smoke_Project\\output\\smoke-debug.log"
+          if (Test-Path $debug) {
+            "---- smoke-debug.log ----"
+            Get-Content $debug
           }
       
       - name: Verify smoke outputs (full)
@@ -107,6 +129,12 @@ jobs:
         with:
           name: smoke-outputs-full
           path: ci-smoke-full/**
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: console-temp-full
+          path: ci-temp/**
 
       - uses: actions/upload-artifact@v4
         if: failure()

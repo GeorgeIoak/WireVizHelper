@@ -7,7 +7,7 @@ name: Build Simple EXE
 
 jobs:
   build:
-    runs-on: [self-hosted, windows, local]
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
