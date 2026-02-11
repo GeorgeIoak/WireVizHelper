@@ -406,13 +406,30 @@ def _css_page_size(sheetsize: str) -> str:
     return WKHTML_PAGE_SIZE.get(sheetsize.upper(), sheetsize.upper())
 
 
+def _pdf_looks_like_error_page(pdf_path: Path) -> bool:
+    """Detect common headless browser error pages saved as PDF."""
+    try:
+        data = pdf_path.read_bytes()
+    except Exception:
+        return False
+    # Check for typical Chromium/Edge error strings embedded in the PDF.
+    haystack = data[:200000].lower()
+    return (
+        b"file not found" in haystack
+        or b"err_file_not_found" in haystack
+        or b"this page isn\x27t working" in haystack
+        or b"couldn\x27t be loaded" in haystack
+    )
+
+
 def _browser_candidates() -> list[tuple[str, str]]:
     """Return candidate Chromium-based browsers for headless PDF export."""
     candidates: list[tuple[str, str]] = []
 
     env_browser = os.environ.get("WIREVIZ_PDF_BROWSER", "").strip()
     if env_browser:
-        candidates.append(("env", env_browser))
+        if os.path.exists(env_browser):
+            candidates.append(("env", env_browser))
 
     names_by_os: list[str]
     if sys.platform.startswith("win"):
@@ -540,8 +557,19 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     f"--print-to-pdf={pdf_arg}",
                     html_url,
                 ]
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                except FileNotFoundError:
+                    last_error = f"browser not found: {browser}"
+                    continue
                 if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
+                    if _pdf_looks_like_error_page(pdf_path):
+                        try:
+                            pdf_path.unlink()
+                        except Exception:
+                            pass
+                        last_error = "browser rendered error page (file not found)"
+                        continue
                     if injected:
                         try:
                             html_for_print.unlink(missing_ok=True)

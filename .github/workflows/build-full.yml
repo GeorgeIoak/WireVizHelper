@@ -109,7 +109,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
           $env:TEMP = $tempDir
           $env:TMP = $tempDir
-          $env:WIREVIZ_PDF_BROWSER = "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+          $edge = Join-Path $env:ProgramFiles "Microsoft\Edge\Application\msedge.exe"
+          if (!(Test-Path $edge)) {
+            $edge = Join-Path ${env:ProgramFiles(x86)} "Microsoft\Edge\Application\msedge.exe"
+          }
+          if (Test-Path $edge) {
+            $env:WIREVIZ_PDF_BROWSER = $edge
+          }
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: Verify GUI outputs (full)
