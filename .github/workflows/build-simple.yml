@@ -48,6 +48,17 @@ jobs:
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
       
+      - name: List smoke outputs (simple)
+        shell: pwsh
+        if: always()
+        run: |
+          Get-ChildItem -Path .\ci-smoke-simple -Recurse | Select-Object FullName, Length
+          $log = Join-Path $PWD "ci-smoke-simple\\Smoke_Project\\output\\wireviz-error.log"
+          if (Test-Path $log) {
+            "---- wireviz-error.log ----"
+            Get-Content $log
+          }
+      
       - name: Verify smoke outputs (simple)
         shell: pwsh
         run: |
@@ -97,6 +108,12 @@ jobs:
           path: ci-smoke-simple/**
 
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-outputs-simple-failed
+          path: ci-smoke-simple/**
+
+      - uses: actions/upload-artifact@v4
         with:
           name: WireVizProjectAssistant-simple
           path: dist/WireVizProjectAssistant-simple.exe
@@ -104,4 +121,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: gui-outputs-simple
+          path: ci-gui-simple/**
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gui-outputs-simple-failed
           path: ci-gui-simple/**

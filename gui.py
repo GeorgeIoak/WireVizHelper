@@ -65,9 +65,10 @@ def run_smoke_test(workdir: Path) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
-    result_code, cmd_display, _, _ = build.run_wireviz(yaml_path, [], output_dir)
+    result_code, cmd_display, stdout, stderr = build.run_wireviz(yaml_path, [], output_dir)
     print(f"Smoke test WireViz command: {cmd_display}")
     if result_code != 0:
+        _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
         print(f"Smoke test failed: WireViz returned {result_code}")
         return result_code
 

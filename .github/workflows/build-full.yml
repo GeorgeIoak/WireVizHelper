@@ -49,6 +49,17 @@ jobs:
         run: |
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
       
+      - name: List smoke outputs (full)
+        shell: pwsh
+        if: always()
+        run: |
+          Get-ChildItem -Path .\ci-smoke-full -Recurse | Select-Object FullName, Length
+          $log = Join-Path $PWD "ci-smoke-full\\Smoke_Project\\output\\wireviz-error.log"
+          if (Test-Path $log) {
+            "---- wireviz-error.log ----"
+            Get-Content $log
+          }
+      
       - name: Verify smoke outputs (full)
         shell: pwsh
         run: |
@@ -98,8 +109,20 @@ jobs:
           path: ci-smoke-full/**
 
       - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: smoke-outputs-full-failed
+          path: ci-smoke-full/**
+
+      - uses: actions/upload-artifact@v4
         with:
           name: gui-outputs-full
+          path: ci-gui-full/**
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gui-outputs-full-failed
           path: ci-gui-full/**
 
       - name: Archive portable build
