@@ -50,6 +50,10 @@ WKHTML_PAGE_SIZE: dict[str, str] = {
     "LEGAL": "Legal",
     "TABLOID": "Tabloid",
 }
+PDF_PAPER_CLASS: dict[str, str] = {
+    "LETTER": "LETTER",
+    "TABLOID": "TABLOID",
+}
 
 
 def _runtime_roots() -> list[Path]:
@@ -423,6 +427,39 @@ def _pdf_looks_like_error_page(pdf_path: Path) -> bool:
     )
 
 
+def _normalize_pdf_paper(paper: str | None) -> str | None:
+    if not isinstance(paper, str):
+        return None
+    key = paper.strip().upper()
+    if not key:
+        return None
+    return key if key in PDF_PAPER_CLASS else None
+
+
+def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
+    """Create a temporary HTML variant with #sheet class forced for PDF paper size."""
+    normalized = _normalize_pdf_paper(paper)
+    if not normalized:
+        return html_path
+
+    content = html_path.read_text(encoding="utf-8")
+    target_class = PDF_PAPER_CLASS[normalized]
+    updated, count = re.subn(
+        r'(<div\b[^>]*\bid="sheet"[^>]*\bclass=")([^"]*)(")',
+        rf"\1{target_class}\3",
+        content,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    if count == 0:
+        # Fallback to source HTML when template structure is unexpected.
+        return html_path
+
+    temp_path = html_path.with_name(f"{html_path.stem}.pdf-{normalized.lower()}.html")
+    temp_path.write_text(updated, encoding="utf-8")
+    return temp_path
+
+
 def _wait_for_pdf_ready(pdf_path: Path, timeout_s: float = 2.5, step_s: float = 0.05) -> bool:
     """Wait briefly for browser PDF output to appear and become non-empty."""
     end = time.time() + timeout_s
@@ -589,7 +626,9 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
     return False, f"browser print failed: {detail}. html={html_url}; pdf={pdf_arg}"
 
 
-def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
+def generate_pdf(
+    html_path: Path, pdf_path: Path, sheetsize: str, paper_override: str | None = None
+) -> tuple[bool, str | None]:
     """Generate a single-page PDF from HTML using an available engine."""
     if not html_path.exists():
         return False, "HTML output was not found"
@@ -601,12 +640,23 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
         except Exception:
             pass
 
-    browser_ok, browser_note = generate_pdf_via_browser(html_path, pdf_path, sheetsize)
+    pdf_html_path = _prepare_pdf_html_for_paper(html_path, paper_override)
+    browser_ok, browser_note = generate_pdf_via_browser(pdf_html_path, pdf_path, sheetsize)
     if browser_ok:
+        if pdf_html_path != html_path:
+            try:
+                pdf_html_path.unlink()
+            except Exception:
+                pass
         return True, browser_note
 
     # Packaged app behavior: browser is the only default PDF engine.
     if is_frozen_app():
+        if pdf_html_path != html_path:
+            try:
+                pdf_html_path.unlink()
+            except Exception:
+                pass
         return False, browser_note or "browser PDF print failed"
 
     page_width_mm, page_height_mm = SHEETSIZE_TO_MM.get(sheetsize, SHEETSIZE_TO_MM["A4"])
@@ -623,9 +673,14 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
                 "#sheet { page-break-inside: avoid; break-inside: avoid; }"
             )
         )
-        HTML(filename=str(html_path), base_url=str(html_path.parent)).write_pdf(
+        HTML(filename=str(pdf_html_path), base_url=str(pdf_html_path.parent)).write_pdf(
             str(pdf_path), stylesheets=[css]
         )
+        if pdf_html_path != html_path:
+            try:
+                pdf_html_path.unlink()
+            except Exception:
+                pass
         return True, "weasyprint"
     except Exception as e:
         weasyprint_error = str(e).strip() or e.__class__.__name__
@@ -649,11 +704,16 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
             "0",
             "--margin-left",
             "0",
-            str(html_path),
+            str(pdf_html_path),
             str(pdf_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
+            if pdf_html_path != html_path:
+                try:
+                    pdf_html_path.unlink()
+                except Exception:
+                    pass
             return True, "wkhtmltopdf"
         wk_error = (result.stderr or result.stdout).strip() or "unknown error"
         parts = []
@@ -670,7 +730,17 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
     if weasyprint_error:
         parts.append(f"weasyprint: {weasyprint_error}")
     if parts:
+        if pdf_html_path != html_path:
+            try:
+                pdf_html_path.unlink()
+            except Exception:
+                pass
         return False, f"PDF engine failed: {'; '.join(parts)}"
+    if pdf_html_path != html_path:
+        try:
+            pdf_html_path.unlink()
+        except Exception:
+            pass
     return False, (
         "browser print failed and no optional PDF engine found "
         "(open the HTML in a browser and print to PDF)"

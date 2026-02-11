@@ -575,6 +575,17 @@ def run_build_gui():
         [sg.Text("YAML File"), sg.Input(key="yaml"), sg.FileBrowse(file_types=(("YAML", "*.yaml"), ("YAML", "*.yml")))],
         [sg.Text("Extra WireViz Args"), sg.Input(key="extra")],
         [sg.Text("Output Directory (optional)"), sg.Input(key="outdir"), sg.FolderBrowse()],
+        [
+            sg.Text("PDF Paper"),
+            sg.Combo(
+                ["Letter", "Tabloid", "Use YAML"],
+                default_value="Letter",
+                readonly=True,
+                key="pdf_paper",
+                size=(16, 1),
+            ),
+            sg.Checkbox("Also generate both Letter and Tabloid", key="pdf_both"),
+        ],
         [sg.Checkbox("Open output folder after build", key="open_after", default=True)],
         [sg.Button("Build"), sg.Button("Cancel")]
     ]
@@ -653,9 +664,36 @@ def run_build_gui():
                 build.rename_header_in_tsv(tsv_path)
                 build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
                 build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-                pdf_generated, pdf_note = build.generate_pdf(
-                    html_path, pdf_path, build.resolve_sheetsize(yaml_data)
-                )
+                paper_choice_raw = str(vals.get("pdf_paper", "Letter")).strip().lower()
+                paper_choice = None if paper_choice_raw == "use yaml" else paper_choice_raw
+                sheetsize = build.resolve_sheetsize(yaml_data)
+                pdf_tasks: list[tuple[Path, str | None]] = []
+
+                if vals.get("pdf_both"):
+                    order = ["letter", "tabloid"]
+                    if paper_choice == "tabloid":
+                        order = ["tabloid", "letter"]
+                    for idx, p in enumerate(order):
+                        target = pdf_path if idx == 0 else base.with_name(f"{base.name}.{p}.pdf")
+                        pdf_tasks.append((target, p.upper()))
+                else:
+                    pdf_tasks.append((pdf_path, paper_choice.upper() if isinstance(paper_choice, str) else None))
+
+                pdf_failures: list[str] = []
+                generated_paths: list[Path] = []
+                for target_pdf, paper_override in pdf_tasks:
+                    pdf_generated, pdf_note = build.generate_pdf(
+                        html_path, target_pdf, sheetsize, paper_override=paper_override
+                    )
+                    if pdf_generated:
+                        generated_paths.append(target_pdf)
+                    else:
+                        label = (
+                            f"{target_pdf.name} ({paper_override.lower()})"
+                            if isinstance(paper_override, str)
+                            else target_pdf.name
+                        )
+                        pdf_failures.append(f"{label}: {pdf_note}")
 
                 if copied_template and copied_template.exists():
                     try:
@@ -663,16 +701,20 @@ def run_build_gui():
                     except Exception:
                         pass
 
-                if not pdf_generated:
-                    _write_pdf_log(output_dir, pdf_note)
+                if pdf_failures:
+                    _write_pdf_log(output_dir, " | ".join(pdf_failures))
                     sg.popup_error(
                         "PDF generation failed.\n\n"
-                        f"Reason:\n{pdf_note}\n\n"
+                        f"Reason:\n{chr(10).join(pdf_failures)}\n\n"
                         f"See log:\n{output_dir / 'pdf-error.log'}"
                     )
                     continue
 
-                sg.popup_ok(f"Build complete.\nOutput folder:\n{output_dir}")
+                extra_pdf_msg = ""
+                if len(generated_paths) > 1:
+                    extras = [p.name for p in generated_paths[1:]]
+                    extra_pdf_msg = f"\nAdditional PDF(s):\n" + "\n".join(extras)
+                sg.popup_ok(f"Build complete.\nOutput folder:\n{output_dir}{extra_pdf_msg}")
 
                 if vals["open_after"] and hasattr(os, "startfile"):
                     os.startfile(output_dir)
