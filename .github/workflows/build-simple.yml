@@ -43,10 +43,17 @@ jobs:
       - name: Build simple EXE
         run: python -m PyInstaller WireVizProjectAssistant.simple.spec
 
-      - name: Smoke test packaged simple EXE
+      - name: Build console EXE (diagnostics)
+        run: python -m PyInstaller WireVizProjectAssistant.ci.spec
+
+      - name: Smoke test packaged console EXE (simple)
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+          $tempDir = Join-Path $PWD "ci-temp"
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          $env:TEMP = $tempDir
+          $env:TMP = $tempDir
+          .\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe --smoke-test --workdir .\ci-smoke-simple
       
       - name: List smoke outputs (simple)
         shell: pwsh
