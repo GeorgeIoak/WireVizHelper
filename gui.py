@@ -96,52 +96,55 @@ def run_smoke_test(workdir: Path) -> int:
     pdf_path = base.with_suffix(".pdf")
 
     # Diagnostic: explicitly run Graphviz on the generated DOT to capture errors.
-    dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
-    dot_input = base.with_suffix(".tmp")
-    _append_smoke_debug(output_dir, f"DOT_PATH: {dot_path or ''}")
-    _append_smoke_debug(output_dir, f"DOT_INPUT_EXISTS: {dot_input.exists()}")
-    if dot_path and dot_input.exists():
-        diag_svg = output_dir / "diagnostic.dot.svg"
-        try:
-            version = subprocess.run(
-                [dot_path, "-V"],
-                capture_output=True,
-                text=True,
-            )
-            _append_smoke_debug(
-                output_dir,
-                "DOT -V STDOUT:\n" + (version.stdout or "") +
-                "\nDOT -V STDERR:\n" + (version.stderr or "") +
-                f"\nDOT -V EXIT: {version.returncode}",
-            )
-            render = subprocess.run(
-                [dot_path, "-Tsvg", str(dot_input), "-o", str(diag_svg)],
-                capture_output=True,
-                text=True,
-            )
-            _append_smoke_debug(
-                output_dir,
-                "DOT RENDER STDOUT:\n" + (render.stdout or "") +
-                "\nDOT RENDER STDERR:\n" + (render.stderr or "") +
-                f"\nDOT RENDER EXIT: {render.returncode}",
-            )
-            if version.returncode != 0 or render.returncode != 0:
+    try:
+        dot_path = os.environ.get("GRAPHVIZ_DOT") or shutil.which("dot")
+        dot_input = base.with_suffix(".tmp")
+        _append_smoke_debug(output_dir, f"DOT_PATH: {dot_path or ''}")
+        _append_smoke_debug(output_dir, f"DOT_INPUT_EXISTS: {dot_input.exists()}")
+        if dot_path and dot_input.exists():
+            diag_svg = output_dir / "diagnostic.dot.svg"
+            try:
+                version = subprocess.run(
+                    [dot_path, "-V"],
+                    capture_output=True,
+                    text=True,
+                )
+                _append_smoke_debug(
+                    output_dir,
+                    "DOT -V STDOUT:\n" + (version.stdout or "") +
+                    "\nDOT -V STDERR:\n" + (version.stderr or "") +
+                    f"\nDOT -V EXIT: {version.returncode}",
+                )
+                render = subprocess.run(
+                    [dot_path, "-Tsvg", str(dot_input), "-o", str(diag_svg)],
+                    capture_output=True,
+                    text=True,
+                )
+                _append_smoke_debug(
+                    output_dir,
+                    "DOT RENDER STDOUT:\n" + (render.stdout or "") +
+                    "\nDOT RENDER STDERR:\n" + (render.stderr or "") +
+                    f"\nDOT RENDER EXIT: {render.returncode}",
+                )
+                if version.returncode != 0 or render.returncode != 0:
+                    _write_wireviz_log(
+                        output_dir,
+                        f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
+                        render.returncode,
+                        (version.stdout or "") + (render.stdout or ""),
+                        (version.stderr or "") + (render.stderr or ""),
+                    )
+            except Exception as e:
+                _append_smoke_debug(output_dir, f"DOT DIAGNOSTIC EXCEPTION: {e}")
                 _write_wireviz_log(
                     output_dir,
                     f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
-                    render.returncode,
-                    (version.stdout or "") + (render.stdout or ""),
-                    (version.stderr or "") + (render.stderr or ""),
+                    1,
+                    "",
+                    f"Graphviz diagnostic failed: {e}",
                 )
-        except Exception as e:
-            _append_smoke_debug(output_dir, f"DOT DIAGNOSTIC EXCEPTION: {e}")
-            _write_wireviz_log(
-                output_dir,
-                f"{dot_path} -Tsvg {dot_input} -o {diag_svg}",
-                1,
-                "",
-                f"Graphviz diagnostic failed: {e}",
-            )
+    except Exception as e:
+        _append_smoke_debug(output_dir, f"DOT DIAGNOSTIC OUTER EXCEPTION: {e}")
 
     build.merge_photo_rows_in_tsv(tsv_path)
     build.merge_photo_rows_in_html(html_path)
