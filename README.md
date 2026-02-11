@@ -1,8 +1,8 @@
 # WireVizHelper / WireViz Project Assistant
 
-WireVizHelper extends WireViz to produce single-file engineering sheets and richer BOM output while keeping YAML as the source of truth.
+WireVizHelper extends WireViz to produce engineering-style drawing sheets and richer BOM output while keeping YAML as the source of truth.
 
-The **WireViz Project Assistant** adds a graphical interface (GUI) and automated build tooling to make project creation and diagram generation easier for both technical and non-technical users.
+The core focus is the Python build pipeline and engineering-sheet output. The **WireViz Project Assistant** GUI/EXE is a convenience layer on top of that pipeline.
 
 ---
 
@@ -12,7 +12,7 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 
 - Generates an engineering-sheet style HTML output with title block, notes, and branding.
 - Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
-- Attempts single-page PDF generation from the rendered HTML using a headless Chromium-based browser (Edge/Chrome/Brave/Chromium).
+- Generates single-page PDF output from the rendered HTML using a headless Chromium-based browser (Edge/Chrome/Brave/Chromium).
 - Scaffolds new project folders with starter YAML, images, and templates.
 
 ### WireViz Project Assistant (GUI)
@@ -20,7 +20,7 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 - Create new WireViz project folders with a simple dialog.
 - Build existing projects without using the command line.
 - Optional automatic opening of the output folder after build.
-- Works as a standalone EXE (simple or fully portable).
+- Works as a standalone EXE (portable full package).
 
 ---
 
@@ -29,15 +29,14 @@ The **WireViz Project Assistant** adds a graphical interface (GUI) and automated
 You can obtain builds from GitHub Actions artifacts or GitHub Releases:
 
 - `WireVizProjectAssistant-full.zip`: portable folder build (EXE + bundled runtime files).
-- `WireVizProjectAssistant-simple.exe`: single-file standalone build.
 
-Both Windows builds are intended to run without manual Graphviz installs or PATH edits.
+The supported Windows distribution is the portable full package.
 
 ## Install And Use (Windows Release)
 
-1. Download either `WireVizProjectAssistant-full.zip` (recommended) or `WireVizProjectAssistant-simple.exe`.
-2. For `full.zip`: extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
-3. Run `WireVizProjectAssistant.exe` from the extracted full folder, or run `WireVizProjectAssistant-simple.exe`.
+1. Download `WireVizProjectAssistant-full.zip`.
+2. Extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
+3. Run `WireVizProjectAssistant.exe` from the extracted folder.
 4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.
 
 Notes:
@@ -78,9 +77,6 @@ Then build:
 ```powershell
 # full portable folder build
 pyinstaller WireVizProjectAssistant.spec
-
-# single-file standalone build
-pyinstaller WireVizProjectAssistant.simple.spec
 ```
 
 `vendor/graphviz/.gitkeep` is a placeholder so folder structure is tracked in git.
@@ -90,9 +86,6 @@ Smoke-test packaged EXEs headlessly (used by CI workflows):
 ```powershell
 # full portable
 .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
-
-# single-file
-.\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
 ```
 
 ## Manual Dependencies (Source/Dev Use)
@@ -102,7 +95,6 @@ If you run from source instead of packaged EXEs, install runtime dependencies on
 ```bash
 # macOS
 brew install graphviz
-brew install pango cairo gdk-pixbuf libffi  # WeasyPrint libs (optional)
 ```
 
 ```bash
@@ -119,7 +111,7 @@ dot -V
 
 GUI dependency note: this project uses `FreeSimpleGUI` (community fork API-compatible with classic PySimpleGUI).
 
-PDF note: the build uses a headless Chromium-based browser if available. You can override the browser path with:
+PDF note: packaged EXE builds use a headless Chromium-based browser. You can override the browser path with:
 
 ```bash
 # macOS / Linux
@@ -169,7 +161,7 @@ python /path/to/WireVizHelper/build.py /path/to/project/drawing.yaml
 - BOM column header `SPN` is renamed to `Product Photo`.
 - Photo helper rows are merged into matching rows (by `Designators` or `MPN`) and removed.
 - Image paths are rewritten for output-folder correctness.
-- PDF is emitted when a supported engine is available (headless browser preferred).
+- PDF is emitted through browser print-to-PDF.
 
 ## Scaffold Options
 

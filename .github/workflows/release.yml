@@ -79,16 +79,18 @@ jobs:
           Get-ChildItem -Path .\ci-smoke-full -Recurse | Select-Object FullName, Length
 
       - name: Build simple EXE
+        if: ${{ false }}
         run: python -m PyInstaller WireVizProjectAssistant.simple.spec
 
       - name: Smoke test packaged simple EXE
+        if: ${{ false }}
         shell: pwsh
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
       
       - name: List smoke outputs (simple)
+        if: ${{ false }}
         shell: pwsh
-        if: always()
         run: |
           Get-ChildItem -Path .\ci-smoke-simple -Recurse | Select-Object FullName, Length
           $log = Join-Path $PWD "ci-smoke-simple\\Smoke_Project\\output\\wireviz-error.log"
@@ -98,6 +100,7 @@ jobs:
           }
       
       - name: Verify smoke outputs (simple)
+        if: ${{ false }}
         shell: pwsh
         run: |
           $base = Join-Path $PWD "ci-smoke-simple\\Smoke_Project\\output"
@@ -123,11 +126,13 @@ jobs:
           .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: GUI smoke test (simple)
+        if: ${{ false }}
         shell: pwsh
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --gui-smoke
 
       - name: GUI scripted build (simple)
+        if: ${{ false }}
         shell: pwsh
         run: |
           $yaml = (Resolve-Path .\starter\drawing.yaml).Path
@@ -148,6 +153,7 @@ jobs:
           if (Test-Path $err) { throw "wireviz-error.log found in GUI output: $err" }
       
       - name: Verify GUI outputs (simple)
+        if: ${{ false }}
         shell: pwsh
         run: |
           $base = Join-Path $PWD "ci-gui-simple"
@@ -161,6 +167,7 @@ jobs:
           if (Test-Path $err) { throw "wireviz-error.log found in GUI output: $err" }
 
       - name: List smoke outputs (simple)
+        if: ${{ false }}
         shell: pwsh
         run: |
           Get-ChildItem -Path .\ci-smoke-simple -Recurse | Select-Object FullName, Length
@@ -172,6 +179,7 @@ jobs:
           retention-days: 14
 
       - uses: actions/upload-artifact@v4
+        if: ${{ false }}
         with:
           name: smoke-outputs-simple
           path: ci-smoke-simple/**
@@ -185,7 +193,7 @@ jobs:
           retention-days: 14
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ false }}
         with:
           name: smoke-outputs-simple-failed
           path: ci-smoke-simple/**
@@ -200,6 +208,5 @@ jobs:
         with:
           files: |
             dist/WireVizProjectAssistant-full.zip
-            dist/WireVizProjectAssistant-simple.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

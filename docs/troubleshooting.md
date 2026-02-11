@@ -4,11 +4,9 @@ Use this page for common setup and build issues. Keep `README.md` focused on onb
 
 ## PDF Generation Issues
 
-WireVizHelper attempts PDF generation in this order:
+Packaged EXE builds use browser PDF generation only:
 
 1. Headless Chromium-based browser (Edge / Chrome / Chromium / Brave)
-2. `weasyprint` Python package (optional)
-3. `wkhtmltopdf` CLI (optional)
 
 If the browser path is unusual, set it explicitly:
 
@@ -24,6 +22,11 @@ $env:WIREVIZ_PDF_BROWSER = "C:\Path\To\msedge.exe"
 
 If PDF still fails, open the HTML output in your browser and print to PDF manually.
 HTML/SVG/PNG/TSV outputs should still be generated.
+
+Source/developer note:
+
+- If you run from Python source and want alternate engines, you can still install
+  `weasyprint` and/or `wkhtmltopdf` manually.
 
 ## Graphviz / `dot` Not Found
 

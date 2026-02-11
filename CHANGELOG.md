@@ -3,7 +3,14 @@ All notable changes to **WireViz Project Assistant** will be documented here.
 
 ## [Unreleased]
 
-- No changes yet.
+### Changed
+- Packaged EXE PDF flow now uses browser print-to-PDF as the default/authoritative engine.
+- Disabled public simple-EXE release path for now; release publishes full portable package only.
+
+### Fixed
+- PDF generation now clears stale target PDFs before each run to avoid false success/failure signals.
+- Browser PDF failures now return detailed diagnostics (browser attempt, mode, exit output, HTML/PDF paths).
+- Packaged EXE no longer falls through to WeasyPrint/wkhtmltopdf on browser failure, preventing misleading `weasyprint` errors.
 
 ## [1.1.4] - 2026-02-10
 ### Fixed

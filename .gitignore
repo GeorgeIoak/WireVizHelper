@@ -2,6 +2,13 @@
 __pycache__/
 output/
 .vscode/
+build/
+dist/
+ci-smoke-*/
+ci-gui-*/
+ci-temp/
+.claude/
+nul
 
 # Optional local/private project variants
 *.private.yaml

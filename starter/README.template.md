@@ -15,9 +15,7 @@ Output files are generated in `output/`.
 ## Prerequisites
 
 - `Graphviz` must be installed for WireViz diagram generation.
-- PDF output additionally requires one of:
-  - Python package: `weasyprint`
-  - CLI tool: `wkhtmltopdf`
+- PDF output uses a Chromium-based browser print engine by default.
 
 ## Typical Workflow
 
@@ -31,7 +29,7 @@ Output files are generated in `output/`.
 - `output/__YAML_STEM__.html`
 - `output/__YAML_STEM__.svg`
 - `output/__YAML_STEM__.png`
-- `output/__YAML_STEM__.pdf` (only when a PDF engine is installed)
+- `output/__YAML_STEM__.pdf` (when browser PDF export succeeds)
 - `output/__YAML_STEM__.bom.tsv`
 
 ## YAML and BOM Notes

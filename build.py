@@ -395,21 +395,13 @@ def resolve_sheetsize(yaml_data: dict) -> str:
 
 def _path_for_chromium_arg(path: Path) -> str:
     """Return a path string suitable for Chromium CLI flags on any OS."""
-    resolved = str(path.resolve())
-    if os.name == "nt":
-        if resolved.startswith("\\\\?\\"):
-            resolved = resolved[4:]
-        return resolved.replace("\\", "/")
-    return resolved
+    return os.path.abspath(str(path))
 
 
 def _file_uri(path: Path) -> str:
     """Build a file:/// URI from a path, safe on all Windows Python versions."""
-    resolved = str(path.resolve())
-    # Strip \\?\ extended-length prefix that Windows can produce
-    if resolved.startswith("\\\\?\\"):
-        resolved = resolved[4:]
-    posix = resolved.replace("\\", "/")
+    p = os.path.abspath(str(path))
+    posix = p.replace("\\", "/")
     return "file:///" + quote(posix, safe=":/@")
 
 
@@ -426,10 +418,12 @@ def _pdf_looks_like_error_page(pdf_path: Path) -> bool:
     # Check for typical Chromium/Edge error strings embedded in the PDF.
     haystack = data[:200000].lower()
     return (
-        b"file not found" in haystack
-        or b"err_file_not_found" in haystack
+        b"err_file_not_found" in haystack
+        or b"net::err_file_not_found" in haystack
+        or b"error code: err_file_not_found" in haystack
         or b"this page isn\x27t working" in haystack
         or b"couldn\x27t be loaded" in haystack
+        or b"your file couldn\x27t be accessed" in haystack
     )
 
 
@@ -538,11 +532,12 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
         html_for_print = html_path
 
     html_url = _file_uri(html_for_print)
-    pdf_arg = _path_for_chromium_arg(pdf_path.resolve())
+    pdf_arg = _path_for_chromium_arg(pdf_path)
     headless_modes = ["--headless=old", "--headless=new", "--headless"]
     last_error: str | None = None
+    attempts: list[str] = []
 
-    for _, browser in candidates:
+    for label, browser in candidates:
         browser_lower = os.path.basename(browser).lower()
         is_edge = "edge" in browser_lower or "msedge" in browser_lower
         for headless in headless_modes:
@@ -573,6 +568,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     result = subprocess.run(cmd, capture_output=True, text=True)
                 except FileNotFoundError:
                     last_error = f"browser not found: {browser}"
+                    attempts.append(f"{label}:{browser} {headless}: not found")
                     continue
                 if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
                     if _pdf_looks_like_error_page(pdf_path):
@@ -581,6 +577,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                         except Exception:
                             pass
                         last_error = "browser rendered error page (file not found)"
+                        attempts.append(f"{label}:{browser} {headless}: rendered browser error page")
                         continue
                     if injected:
                         try:
@@ -592,13 +589,24 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                 stderr = (result.stderr or "").strip()
                 stdout = (result.stdout or "").strip()
                 last_error = stderr or stdout or f"exit {result.returncode}"
+                attempts.append(
+                    f"{label}:{browser} {headless}: exit {result.returncode}"
+                    + (f" stderr={stderr}" if stderr else "")
+                    + (f" stdout={stdout}" if stdout else "")
+                )
 
     if injected:
         try:
             html_for_print.unlink(missing_ok=True)
         except Exception:
             pass
-    return False, f"browser print failed: {last_error}"
+    detail = last_error or "unknown error"
+    if attempts:
+        return False, (
+            "browser print failed: "
+            f"{detail}. html={html_url}; pdf={pdf_arg}; attempts=" + " || ".join(attempts)
+        )
+    return False, f"browser print failed: {detail}. html={html_url}; pdf={pdf_arg}"
 
 
 def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
@@ -606,9 +614,20 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
     if not html_path.exists():
         return False, "HTML output was not found"
 
+    # Always clear stale output first so this run's result is unambiguous.
+    if pdf_path.exists():
+        try:
+            pdf_path.unlink()
+        except Exception:
+            pass
+
     browser_ok, browser_note = generate_pdf_via_browser(html_path, pdf_path, sheetsize)
     if browser_ok:
         return True, browser_note
+
+    # Packaged app behavior: browser is the only default PDF engine.
+    if is_frozen_app():
+        return False, f"browser PDF print failed: {browser_note or 'unknown error'}"
 
     page_width_mm, page_height_mm = SHEETSIZE_TO_MM.get(sheetsize, SHEETSIZE_TO_MM["A4"])
 
@@ -1100,7 +1119,8 @@ def main() -> None:
     else:
         print(f"  {base.with_suffix('.pdf')} (not generated: {pdf_note})")
         print("  PDF setup: open the HTML in your browser and print to PDF.")
-        print("  Optional: install wkhtmltopdf or WeasyPrint for automated CLI PDF output.")
+        if not is_frozen_app():
+            print("  Optional (source mode): install wkhtmltopdf or WeasyPrint for automated CLI PDF output.")
     tsv_notes = []
     if merged_tsv:
         tsv_notes.append("photo row merged")
