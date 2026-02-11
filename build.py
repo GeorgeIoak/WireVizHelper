@@ -17,6 +17,7 @@ import os
 import site
 import sysconfig
 import tempfile
+import time
 import re
 import runpy
 import shutil
@@ -502,6 +503,28 @@ def _browser_candidates() -> list[tuple[str, str]]:
     return unique
 
 
+def _cleanup_temp_profile_dir(path: Path, retries: int = 6, delay_s: float = 0.2) -> None:
+    """Best-effort cleanup for browser temp profiles on Windows.
+
+    Chromium/Edge can keep Crashpad files briefly locked after process exit.
+    Retry a few times, then ignore remaining cleanup failures.
+    """
+    for attempt in range(retries):
+        try:
+            shutil.rmtree(path)
+            return
+        except FileNotFoundError:
+            return
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(delay_s)
+                continue
+            try:
+                shutil.rmtree(path, ignore_errors=True)
+            except Exception:
+                pass
+
+
 def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
     """Generate PDF using a headless Chromium-based browser if available."""
     candidates = _browser_candidates()
@@ -546,7 +569,8 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     pdf_path.unlink()
                 except Exception:
                     pass
-            with tempfile.TemporaryDirectory() as profile_dir:
+            profile_dir = Path(tempfile.mkdtemp(prefix="wireviz-pdf-profile-"))
+            try:
                 cmd = [
                     browser,
                     headless,
@@ -555,6 +579,8 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     "--disable-extensions",
                     "--disable-background-networking",
                     "--disable-sync",
+                    "--disable-crash-reporter",
+                    "--disable-breakpad",
                     "--no-default-browser-check",
                     "--landscape",
                     "--allow-file-access-from-files",
@@ -594,6 +620,8 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     + (f" stderr={stderr}" if stderr else "")
                     + (f" stdout={stdout}" if stdout else "")
                 )
+            finally:
+                _cleanup_temp_profile_dir(profile_dir)
 
     if injected:
         try:
