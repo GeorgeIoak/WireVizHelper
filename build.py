@@ -16,8 +16,6 @@ import importlib.util
 import os
 import site
 import sysconfig
-import tempfile
-import time
 import re
 import runpy
 import shutil
@@ -406,10 +404,6 @@ def _file_uri(path: Path) -> str:
     return "file:///" + quote(posix, safe=":/@")
 
 
-def _css_page_size(sheetsize: str) -> str:
-    return WKHTML_PAGE_SIZE.get(sheetsize.upper(), sheetsize.upper())
-
-
 def _pdf_looks_like_error_page(pdf_path: Path) -> bool:
     """Detect common headless browser error pages saved as PDF."""
     try:
@@ -503,60 +497,15 @@ def _browser_candidates() -> list[tuple[str, str]]:
     return unique
 
 
-def _cleanup_temp_profile_dir(path: Path, retries: int = 6, delay_s: float = 0.2) -> None:
-    """Best-effort cleanup for browser temp profiles on Windows.
-
-    Chromium/Edge can keep Crashpad files briefly locked after process exit.
-    Retry a few times, then ignore remaining cleanup failures.
-    """
-    for attempt in range(retries):
-        try:
-            shutil.rmtree(path)
-            return
-        except FileNotFoundError:
-            return
-        except Exception:
-            if attempt < retries - 1:
-                time.sleep(delay_s)
-                continue
-            try:
-                shutil.rmtree(path, ignore_errors=True)
-            except Exception:
-                pass
-
-
 def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool, str | None]:
     """Generate PDF using a headless Chromium-based browser if available."""
     candidates = _browser_candidates()
     if not candidates:
         return False, "no supported browser found (set WIREVIZ_PDF_BROWSER)"
 
-    html_for_print = html_path
-    injected = False
-    try:
-        html_text = html_path.read_text(encoding="utf-8")
-        css_size = _css_page_size(sheetsize)
-        base_href = _file_uri(html_path.parent).rstrip("/") + "/"
-        base_tag = f'<base href="{base_href}">'
-        style_block = (
-            "<style>"
-            f"@page {{ size: {css_size} landscape; margin: 0; }}"
-            "html, body { margin: 0; padding: 0; }"
-            "</style>"
-        )
-        if "</head>" in html_text:
-            html_text = html_text.replace("</head>", f"{base_tag}{style_block}</head>", 1)
-        else:
-            html_text = base_tag + style_block + html_text
-        html_for_print = html_path.with_suffix(".print.html")
-        html_for_print.write_text(html_text, encoding="utf-8")
-        injected = True
-    except Exception:
-        html_for_print = html_path
-
-    html_url = _file_uri(html_for_print)
+    html_url = _file_uri(html_path)
     pdf_arg = _path_for_chromium_arg(pdf_path)
-    headless_modes = ["--headless=old", "--headless=new", "--headless"]
+    headless_modes = ["--headless=new", "--headless"]
     last_error: str | None = None
     attempts: list[str] = []
 
@@ -569,65 +518,39 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                     pdf_path.unlink()
                 except Exception:
                     pass
-            profile_dir = Path(tempfile.mkdtemp(prefix="wireviz-pdf-profile-"))
+            cmd = [
+                browser,
+                headless,
+                "--landscape",
+                "--no-pdf-header-footer",
+                f"--print-to-pdf={pdf_arg}",
+                html_url,
+            ]
             try:
-                cmd = [
-                    browser,
-                    headless,
-                    "--disable-gpu",
-                    "--no-first-run",
-                    "--disable-extensions",
-                    "--disable-background-networking",
-                    "--disable-sync",
-                    "--disable-crash-reporter",
-                    "--disable-breakpad",
-                    "--no-default-browser-check",
-                    "--landscape",
-                    "--allow-file-access-from-files",
-                    "--allow-file-access",
-                    f"--user-data-dir={profile_dir}",
-                    "--no-pdf-header-footer",
-                    f"--print-to-pdf={pdf_arg}",
-                    html_url,
-                ]
-                try:
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-                except FileNotFoundError:
-                    last_error = f"browser not found: {browser}"
-                    attempts.append(f"{label}:{browser} {headless}: not found")
+                result = subprocess.run(cmd, capture_output=True, text=True)
+            except FileNotFoundError:
+                last_error = f"browser not found: {browser}"
+                attempts.append(f"{label}:{browser} {headless}: not found")
+                continue
+            if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
+                if _pdf_looks_like_error_page(pdf_path):
+                    try:
+                        pdf_path.unlink()
+                    except Exception:
+                        pass
+                    last_error = "browser rendered error page (file not found)"
+                    attempts.append(f"{label}:{browser} {headless}: rendered browser error page")
                     continue
-                if result.returncode == 0 and pdf_path.exists() and pdf_path.stat().st_size > 0:
-                    if _pdf_looks_like_error_page(pdf_path):
-                        try:
-                            pdf_path.unlink()
-                        except Exception:
-                            pass
-                        last_error = "browser rendered error page (file not found)"
-                        attempts.append(f"{label}:{browser} {headless}: rendered browser error page")
-                        continue
-                    if injected:
-                        try:
-                            html_for_print.unlink(missing_ok=True)
-                        except Exception:
-                            pass
-                    engine = "edge" if is_edge else "chromium"
-                    return True, f"{engine} headless"
-                stderr = (result.stderr or "").strip()
-                stdout = (result.stdout or "").strip()
-                last_error = stderr or stdout or f"exit {result.returncode}"
-                attempts.append(
-                    f"{label}:{browser} {headless}: exit {result.returncode}"
-                    + (f" stderr={stderr}" if stderr else "")
-                    + (f" stdout={stdout}" if stdout else "")
-                )
-            finally:
-                _cleanup_temp_profile_dir(profile_dir)
-
-    if injected:
-        try:
-            html_for_print.unlink(missing_ok=True)
-        except Exception:
-            pass
+                engine = "edge" if is_edge else "chromium"
+                return True, f"{engine} headless"
+            stderr = (result.stderr or "").strip()
+            stdout = (result.stdout or "").strip()
+            last_error = stderr or stdout or f"exit {result.returncode}"
+            attempts.append(
+                f"{label}:{browser} {headless}: exit {result.returncode}"
+                + (f" stderr={stderr}" if stderr else "")
+                + (f" stdout={stdout}" if stdout else "")
+            )
     detail = last_error or "unknown error"
     if attempts:
         return False, (
@@ -655,7 +578,7 @@ def generate_pdf(html_path: Path, pdf_path: Path, sheetsize: str) -> tuple[bool,
 
     # Packaged app behavior: browser is the only default PDF engine.
     if is_frozen_app():
-        return False, f"browser PDF print failed: {browser_note or 'unknown error'}"
+        return False, browser_note or "browser PDF print failed"
 
     page_width_mm, page_height_mm = SHEETSIZE_TO_MM.get(sheetsize, SHEETSIZE_TO_MM["A4"])
 
