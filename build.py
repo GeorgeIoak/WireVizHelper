@@ -481,7 +481,8 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
         f"@page {{ size: {page_size} landscape; margin: 0; }}"
         "html, body { margin: 0 !important; padding: 0 !important; }"
         "body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }"
-        f"#sheet {{ width: {width_mm}mm !important; height: {height_mm}mm !important; margin: 0 !important; box-shadow: none; }}"
+        f"#sheet {{ page: auto !important; width: {width_mm}mm !important; height: {height_mm}mm !important; margin: 0 !important; box-shadow: none; overflow: hidden !important; }}"
+        "#notes-panel, #bom { overflow: hidden !important; }"
         "}"
         "</style>"
     )
