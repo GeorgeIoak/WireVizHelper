@@ -169,11 +169,7 @@ jobs:
           path: ci-gui-full/**
           retention-days: 14
 
-      - name: Archive portable build
-        shell: pwsh
-        run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizProjectAssistant-full.zip
-
       - uses: actions/upload-artifact@v4
         with:
           name: WireVizProjectAssistant-full
-          path: dist/WireVizProjectAssistant-full.zip
+          path: dist/WireVizProjectAssistant/**
