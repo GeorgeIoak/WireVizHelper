@@ -63,6 +63,7 @@ PDF_PAPER_MM: dict[str, tuple[int, int]] = {
     "TABLOID": (432, 279),
 }
 _SHEET_SIZE_CLASSES = {"A0", "A1", "A2", "A3", "A4", "LETTER", "TABLOID"}
+DEFAULT_AUTO_PDF_PAPER = "LETTER"
 
 
 def _runtime_roots() -> list[Path]:
@@ -1182,7 +1183,9 @@ def main() -> None:
     tsv_changed = rename_header_in_tsv(tsv_path)
     html_img_paths = rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
     tsv_img_paths = rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-    pdf_generated, pdf_note = generate_pdf(html_path, pdf_path, sheetsize)
+    pdf_generated, pdf_note = generate_pdf(
+        html_path, pdf_path, sheetsize, paper_override=DEFAULT_AUTO_PDF_PAPER
+    )
 
     if copied_template and copied_template.exists():
         try:

@@ -142,7 +142,12 @@ def run_smoke_test(workdir: Path) -> int:
         build.rename_header_in_tsv(tsv_path)
         build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
         build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-        pdf_generated, pdf_note = build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
+        pdf_generated, pdf_note = build.generate_pdf(
+            html_path,
+            pdf_path,
+            build.resolve_sheetsize(yaml_data),
+            paper_override=build.DEFAULT_AUTO_PDF_PAPER,
+        )
 
         required = [html_path, svg_path, png_path, tsv_path, pdf_path]
         missing = [str(p) for p in required if not p.exists()]
@@ -387,7 +392,10 @@ def run_build_scripted(
     build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
     build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
     pdf_generated, pdf_note = build.generate_pdf(
-        html_path, pdf_path, build.resolve_sheetsize(yaml_data)
+        html_path,
+        pdf_path,
+        build.resolve_sheetsize(yaml_data),
+        paper_override=build.DEFAULT_AUTO_PDF_PAPER,
     )
 
     if copied_template and copied_template.exists():
