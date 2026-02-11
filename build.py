@@ -138,7 +138,8 @@ def _run_wireviz_module(args: list[str]) -> int:
     old_argv = sys.argv[:]
     try:
         sys.argv = ["wireviz", *args]
-        runpy.run_module("wireviz", run_name="__main__", alter_sys=True)
+        # WireViz does not expose a package __main__, run the CLI module directly.
+        runpy.run_module("wireviz.wv_cli", run_name="__main__", alter_sys=True)
         return 0
     except SystemExit as e:
         if isinstance(e.code, int):
