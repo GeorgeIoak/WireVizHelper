@@ -47,6 +47,19 @@ jobs:
         shell: pwsh
         run: |
           .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+      
+      - name: Verify smoke outputs (simple)
+        shell: pwsh
+        run: |
+          $base = Join-Path $PWD "ci-smoke-simple\\Smoke_Project\\output"
+          $expected = @("drawing.html","drawing.svg","drawing.png","drawing.bom.tsv","drawing.pdf")
+          foreach ($name in $expected) {
+            $p = Join-Path $base $name
+            if (!(Test-Path $p)) { throw "Missing smoke output: $p" }
+            if ((Get-Item $p).Length -le 0) { throw "Empty smoke output: $p" }
+          }
+          $err = Join-Path $base "wireviz-error.log"
+          if (Test-Path $err) { throw "wireviz-error.log found in smoke output: $err" }
 
       - name: GUI smoke test (simple)
         shell: pwsh
@@ -56,7 +69,22 @@ jobs:
       - name: GUI scripted build (simple)
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant-simple.exe --gui-scripted --yaml .\starter\drawing.yaml --outdir .\ci-gui-simple
+          $yaml = (Resolve-Path .\starter\drawing.yaml).Path
+          $outdir = Join-Path $PWD "ci-gui-simple"
+          .\dist\WireVizProjectAssistant-simple.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
+
+      - name: Verify GUI outputs (simple)
+        shell: pwsh
+        run: |
+          $base = Join-Path $PWD "ci-gui-simple"
+          $expected = @("drawing.html","drawing.svg","drawing.png","drawing.bom.tsv","drawing.pdf")
+          foreach ($name in $expected) {
+            $p = Join-Path $base $name
+            if (!(Test-Path $p)) { throw "Missing GUI output: $p" }
+            if ((Get-Item $p).Length -le 0) { throw "Empty GUI output: $p" }
+          }
+          $err = Join-Path $base "wireviz-error.log"
+          if (Test-Path $err) { throw "wireviz-error.log found in GUI output: $err" }
 
       - name: List smoke outputs (simple)
         shell: pwsh
@@ -72,3 +100,8 @@ jobs:
         with:
           name: WireVizProjectAssistant-simple
           path: dist/WireVizProjectAssistant-simple.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-outputs-simple
+          path: ci-gui-simple/**

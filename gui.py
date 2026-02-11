@@ -208,6 +208,7 @@ def run_build_scripted(
     yaml_path: Path, outdir_override: Path | None, extra_args: list[str]
 ) -> int:
     """Run the same build pipeline as the GUI, without UI prompts."""
+    yaml_path = yaml_path.expanduser().resolve()
     if not yaml_path.exists():
         print(f"Error: YAML file not found: {yaml_path}")
         return 1
@@ -220,7 +221,7 @@ def run_build_scripted(
     _, resolved_output_name = build.resolve_output_paths(yaml_path, passthrough)
 
     if outdir_override:
-        output_dir = outdir_override.resolve()
+        output_dir = outdir_override.expanduser().resolve()
         output_name = resolved_output_name
     else:
         output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
@@ -248,13 +249,9 @@ def run_build_scripted(
     build.rename_header_in_tsv(tsv_path)
     build.rewrite_relative_image_paths(html_path, yaml_path.parent, output_dir)
     build.rewrite_relative_image_paths(tsv_path, yaml_path.parent, output_dir)
-    build.generate_pdf(html_path, pdf_path, build.resolve_sheetsize(yaml_data))
-
-    if copied_template and copied_template.exists():
-        try:
-            copied_template.unlink()
-        except Exception:
-            pass
+    pdf_generated, pdf_note = build.generate_pdf(
+        html_path, pdf_path, build.resolve_sheetsize(yaml_data)
+    )
 
     if copied_template and copied_template.exists():
         try:
@@ -268,6 +265,9 @@ def run_build_scripted(
         print("Build failed: Missing required outputs:")
         for p in missing:
             print(f"  - {p}")
+        return 1
+    if not pdf_generated:
+        print(f"Build failed: PDF was not generated ({pdf_note})")
         return 1
     return 0
 

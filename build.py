@@ -193,6 +193,14 @@ def load_yaml_data(yaml_path: Path) -> dict:
 
 
 def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
+    if is_frozen_app():
+        return [
+            sys.executable,
+            "-m",
+            "wireviz",
+            str(yaml_path),
+            *passthrough,
+        ]
     wireviz_bin = shutil.which("wireviz")
     if not wireviz_bin:
         # Fall back to common user-level script locations (Windows/macOS/Linux).
@@ -232,6 +240,7 @@ def wireviz_command(yaml_path: Path, passthrough: list[str]) -> list[str]:
 def run_wireviz(
     yaml_path: Path, passthrough: list[str], output_dir: Path
 ) -> tuple[int, str, str, str]:
+    yaml_path = yaml_path.resolve()
     passthrough_with_dir = ensure_output_dir_arg(passthrough, output_dir)
     cmd = wireviz_command(yaml_path, passthrough_with_dir)
     cmd_display = " ".join(cmd)
@@ -253,7 +262,7 @@ def run_wireviz(
         )
 
     result = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=str(yaml_path.parent)
+        cmd, capture_output=True, text=True, cwd=str(yaml_path.parent.resolve())
     )
     stdout = (result.stdout or "").strip()
     stderr = (result.stderr or "").strip()
