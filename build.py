@@ -54,10 +54,6 @@ PDF_PAPER_CLASS: dict[str, str] = {
     "LETTER": "LETTER",
     "TABLOID": "TABLOID",
 }
-PDF_PAPER_PAGE_SIZE: dict[str, str] = {
-    "LETTER": "Letter",
-    "TABLOID": "Tabloid",
-}
 PDF_PAPER_MM: dict[str, tuple[int, int]] = {
     "LETTER": (279, 216),
     "TABLOID": (432, 279),
@@ -481,7 +477,6 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
     if count == 0:
         raise RuntimeError("could not locate #sheet class attribute for paper override")
 
-    page_size = PDF_PAPER_PAGE_SIZE[normalized]
     width_mm, height_mm = PDF_PAPER_MM[normalized]
     debug_watermark = ""
     if _pdf_debug_watermark_enabled():
@@ -494,7 +489,7 @@ def _prepare_pdf_html_for_paper(html_path: Path, paper: str | None) -> Path:
     print_style = (
         '<style id="wireviz-pdf-paper">'
         "@media print {"
-        f"@page {{ size: {page_size} landscape; margin: 0; }}"
+        f"@page {{ size: {width_mm}mm {height_mm}mm; margin: 0; }}"
         "html, body { margin: 0 !important; padding: 0 !important; }"
         "html, body { overflow: hidden !important; }"
         "body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }"
