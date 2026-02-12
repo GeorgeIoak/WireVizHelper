@@ -59,7 +59,7 @@ metadata:
   title: Example Cable Assembly
   template:
     name: engineering-sheet
-    sheetsize: A3
+    sheetsize: LETTER
   description: "SOOW 6/4, 20 ft, 50A 250VAC, 14-50P to flying leads"
   notes: |
     End-1: NEMA 14-50P

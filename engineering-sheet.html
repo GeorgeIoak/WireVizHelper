@@ -201,9 +201,10 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 2.7mm;
+      border: 0;
     }
 
-    #bom table, #bom th, #bom td {
+    #bom th, #bom td {
       border: 1px solid var(--line);
     }
 
@@ -211,6 +212,26 @@
       padding: 1.4mm 1.6mm;
       text-align: left;
       vertical-align: middle;
+    }
+
+    #bom tr:first-child th,
+    #bom tr:first-child td {
+      border-top: 0;
+    }
+
+    #bom th:first-child,
+    #bom td:first-child {
+      border-left: 0;
+    }
+
+    #bom th:last-child,
+    #bom td:last-child {
+      border-right: 0;
+    }
+
+    #bom tr:last-child th,
+    #bom tr:last-child td {
+      border-bottom: 0;
     }
 
     #bom .bom_col_id,
