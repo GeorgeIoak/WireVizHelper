@@ -67,7 +67,7 @@ def _write_project_readme(dst: Path, project_name: str, yaml_name: str) -> None:
     rendered = template.replace("__PROJECT_NAME__", project_name)
     rendered = rendered.replace("__YAML_FILE__", yaml_name)
     rendered = rendered.replace("__YAML_STEM__", Path(yaml_name).stem)
-    build_cmd = f"python /path/to/toolkit/build.py {yaml_name}"
+    build_cmd = f"python build.py {yaml_name}"
     rendered = rendered.replace("__BUILD_CMD__", build_cmd)
     dst.write_text(rendered, encoding="utf-8")
 
@@ -192,7 +192,7 @@ def main() -> None:
         print("Next steps:")
         print(f"  cd {target}")
         print(f"  edit {yaml_name}")
-        print(f"  python /path/to/toolkit/build.py {yaml_name}")
+        print(f"  python build.py {yaml_name}")
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)

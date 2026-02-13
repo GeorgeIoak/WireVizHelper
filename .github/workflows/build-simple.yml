@@ -39,10 +39,10 @@ jobs:
           Copy-Item -Recurse -Force $graphvizRoot/* vendor/graphviz/
 
       - name: Build simple EXE
-        run: python -m PyInstaller WireVizProjectAssistant.simple.spec
+        run: python -m PyInstaller WireVizHelper.simple.spec
 
       - name: Build console EXE (diagnostics)
-        run: python -m PyInstaller WireVizProjectAssistant.ci.spec
+        run: python -m PyInstaller WireVizHelper.ci.spec
 
       - name: Smoke test packaged console EXE (simple)
         shell: pwsh
@@ -51,7 +51,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
           $env:TEMP = $tempDir
           $env:TMP = $tempDir
-          .\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe --smoke-test --workdir .\ci-smoke-simple
+          .\dist\WireVizHelper-ci\WireVizHelper-ci.exe --smoke-test --workdir .\ci-smoke-simple
       
       - name: List smoke outputs (simple)
         shell: pwsh
@@ -80,7 +80,7 @@ jobs:
       - name: GUI smoke test (simple)
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant-simple.exe --gui-smoke
+          .\dist\WireVizHelper-simple.exe --gui-smoke
 
       - name: GUI scripted build (simple)
         shell: pwsh
@@ -98,7 +98,7 @@ jobs:
           if (Test-Path $edge) {
             $env:WIREVIZ_PDF_BROWSER = $edge
           }
-          .\dist\WireVizProjectAssistant-simple.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
+          .\dist\WireVizHelper-simple.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: Verify GUI outputs (simple)
         shell: pwsh
@@ -133,8 +133,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: WireVizProjectAssistant-simple
-          path: dist/WireVizProjectAssistant-simple.exe
+          name: WireVizHelper-simple
+          path: dist/WireVizHelper-simple.exe
 
       - uses: actions/upload-artifact@v4
         with:

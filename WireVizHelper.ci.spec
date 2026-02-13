@@ -1,4 +1,4 @@
-# WireVizProjectAssistant.ci.spec
+# WireVizHelper.ci.spec
 #
 # Console-mode build for CI diagnostics (captures stdout/stderr).
 
@@ -16,6 +16,8 @@ graphviz_bin = graphviz_root / "bin"
 starter_dir = root / "starter"
 template_file = root / "engineering-sheet.html"
 gitignore_file = root / ".gitignore"
+version_info_file = root / "windows-version-info.txt"
+icon_file = root / "assets" / "icons" / "wirevizhelper.ico"
 
 os.environ["PATH"] = (
     str(graphviz_bin) + os.pathsep +
@@ -74,8 +76,10 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name="WireVizProjectAssistant-ci",
+    name="WireVizHelper-ci",
     console=True,
+    version=str(version_info_file),
+    icon=str(icon_file),
 )
 
 coll = COLLECT(
@@ -84,5 +88,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="WireVizProjectAssistant-ci",
+    name="WireVizHelper-ci",
 )

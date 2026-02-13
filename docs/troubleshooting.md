@@ -1,81 +1,63 @@
-# Troubleshooting (WireVizHelper)
+# Troubleshooting
 
-Use this page for common setup and build issues. Keep `README.md` focused on onboarding; add deeper issue-specific steps here.
+Use this page for common setup and build issues.
+
+## Build Failures & Logs
+
+If the build fails, check the console output first. If WireViz crashes, a log file is often created in your output folder:
+
+- `output/wireviz-error.log`
 
 ## PDF Generation Issues
 
-Packaged EXE builds use browser PDF generation only:
+The application uses your system's web browser (Edge, Chrome, Brave, etc.) to generate PDFs.
 
-1. Headless Chromium-based browser (Edge / Chrome / Chromium / Brave)
+**Symptoms:**
+- PDF file is missing from `output/`.
+- Console says "browser print failed".
 
-If the browser path is unusual, set it explicitly:
+**Solutions:**
+1. **Ensure a browser is installed**: Edge (Windows) or Chrome/Chromium (macOS/Linux) are preferred.
+2. **Force a specific browser**: If the auto-detection fails, set the path explicitly.
 
-```bash
-# macOS / Linux
-export WIREVIZ_PDF_BROWSER=/path/to/chrome
-```
+   ```powershell
+   # Windows PowerShell
+   $env:WIREVIZ_PDF_BROWSER = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+   .\WireVizHelper.exe build .\my-project\drawing.yaml
+   ```
 
-```powershell
-# Windows (PowerShell)
-$env:WIREVIZ_PDF_BROWSER = "C:\Path\To\msedge.exe"
-```
+   ```bash
+   # macOS / Linux
+   export WIREVIZ_PDF_BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+   ```
 
-If PDF still fails, open the HTML output in your browser and print to PDF manually.
-HTML/SVG/PNG/TSV outputs should still be generated.
-
-Source/developer note:
-
-- If you run from Python source and want alternate engines, you can still install
-  `weasyprint` and/or `wkhtmltopdf` manually.
+3. **Manual Workaround**: Open the generated `.html` file in your browser and use **Print > Save as PDF**.
 
 ## Graphviz / `dot` Not Found
 
-Symptoms:
+WireViz requires Graphviz. If you see `dot: command not found` or similar:
 
-- Build fails before diagram generation.
-- Terminal reports `dot` is missing.
+1. **Install Graphviz**: See `README.md` for install commands.
+2. **Check PATH**: The `bin` folder must be in your system PATH.
+3. **Verify**:
 
-Fix:
+   ```bash
+   dot -V
+   ```
 
-1. Install Graphviz.
-2. Add Graphviz to PATH (Windows default install path is `C:\Program Files\Graphviz\bin`).
-3. Restart terminal.
-4. Confirm with:
+**Windows PATH Fixes:**
 
-```bash
-dot -V
-```
+- **Temporary (Current Terminal)**:
+  ```powershell
+  $env:Path += ";C:\Program Files\Graphviz\bin"
+  ```
 
-If `dot -V` still fails, ensure Graphviz is on your PATH.
-After a permanent change, open a new terminal to pick up the updated PATH.
-
-Windows PATH quick fix (current session):
-
-```cmd
-set PATH=%PATH%;C:\Program Files\Graphviz\bin
-dot -V
-```
-
-PowerShell quick fix (current session):
-
-```powershell
-$env:Path = "$env:Path;C:\Program Files\Graphviz\bin"
-dot -V
-```
-
-PowerShell PATH permanent (user):
-
-```powershell
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\Graphviz\bin", "User")
-dot -V
-```
-
-cmd.exe PATH permanent (user):
-
-```cmd
-setx PATH "%PATH%;C:\Program Files\Graphviz\bin"
-dot -V
-```
+- **Permanent**:
+  1. Search Windows for "Edit the system environment variables".
+  2. Click "Environment Variables".
+  3. Edit "Path" under User variables.
+  4. Add the Graphviz bin path (e.g., `C:\Program Files\Graphviz\bin`).
+  5. Restart your terminal.
 
 ## Python Dependency Install Fails
 
@@ -89,20 +71,18 @@ Run from the WireVizHelper repository root.
 
 ## Notes Panel Overflow
 
-If the notes panel shows a vertical scrollbar:
+If the notes panel shows a vertical scrollbar (which prints poorly):
 
-- Increase `metadata.notes_width`
-- Shorten `metadata.notes`
-- Reduce strip-detail image height in `engineering-sheet.html` (`#strip-detail-image`)
+- Increase `metadata.notes_width` in YAML.
+- Shorten `metadata.notes` text.
+- Reduce strip-detail image height in `engineering-sheet.html` (`#strip-detail-image`).
 
-For layout-related YAML keys, see [`docs/yaml-options.md`](yaml-options.md).
+For layout keys, see [`docs/yaml-options.md`](yaml-options.md).
 
 ## BOM Photo Merge Not Working
 
-Checks:
+If product photos aren't appearing in the main BOM table:
 
-1. Photo row is in `additional_bom_items`.
-2. Photo HTML is placed in `spn`.
-3. `Designators` or `MPN` matches the target BOM row.
-
-If matches are missing, the helper row cannot merge into a part row.
+1. **Check `additional_bom_items`**: The photo must be defined here in YAML.
+2. **Check Matching Fields**: The helper row must have a `Designators` or `MPN` field that *exactly* matches a component in the main BOM.
+3. **Check Column Name**: Ensure you are putting the HTML `<img>` tag in the `spn` field of the helper row.

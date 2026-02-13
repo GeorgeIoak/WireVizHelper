@@ -1,45 +1,47 @@
-# YAML Options (WireVizHelper)
+# YAML Configuration Reference
 
-This document summarizes the YAML fields and metadata used by WireVizHelper to generate the engineering sheet and BOM. Keep your YAML as the single source of truth.
+This document summarizes the YAML fields and metadata used by WireVizHelper.
 
-If you are new to WireViz:
-
-- Start with `examples/minimal_drawing.yaml`.
-- Keep your first file simple, then add metadata/layout options one section at a time.
+**Tip:** Start with `examples/minimal_drawing.yaml` and add options as needed.
 
 ## Core Structure
 
-- `connectors`: list of connectors with standard WireViz fields.
-- `cables`: list of cables/harness segments.
-- `connections`: wiring between connector pins and cable wires.
-- `additional_bom_items`: optional helper rows (used for photos and custom BOM items).
+- `connectors`: List of connectors (standard WireViz).
+- `cables`: List of cables/harness segments (standard WireViz).
+- `connections`: Wiring definitions (standard WireViz).
+- `additional_bom_items`: Helper rows for photos or custom BOM items.
+- `metadata`: Configuration for the engineering sheet template.
 
-## BOM Fields (per WireViz)
+## BOM Fields
 
-Use native WireViz keys in `connectors` / `cables`:
+Use these standard WireViz keys inside `connectors` or `cables` entries:
 
-- `manufacturer`: manufacturer name (HTML allowed for links).
-- `mpn`: manufacturer part number (HTML allowed for links).
-- `pn`: internal part number (optional).
-- `supplier`: distributor name (optional).
-- `spn`: spare part number field; WireVizHelper repurposes this as a `Product Photo` column.
-- *Note: Do not use unsupported custom keys (like `link`) inside connectors/cables.*
+| Key | Description |
+| :--- | :--- |
+| `manufacturer` | Manufacturer name. |
+| `mpn` | Manufacturer Part Number. |
+| `pn` | Internal Part Number (optional). |
+| `supplier` | Distributor/Supplier name (optional). |
+| `spn` | **Product Photo**. WireVizHelper repurposes this field for images. |
 
-Link examples (HTML embedded):
+**HTML Support:** You can use HTML in `manufacturer` or `mpn` for links:
 
-- `mpn: '<a href="https://example.com/part">12345</a>'`
-- `manufacturer: '<a href="https://example.com">Acme</a>'`
+```yaml
+mpn: '<a href="https://example.com/part">12345</a>'
+```
 
 ## Product Photos in BOM (photo-in-row)
 
-WireViz does not natively attach a photo column to a part row. To include a photo:
+To display a photo in the BOM row for a component:
 
-- Add a helper entry in `additional_bom_items` that describes the photo.
-- Put image HTML (or an `<img>` tag) in `spn`.
-- Ensure either `Designators` or `MPN` matches the target BOM row.
-- WireVizHelper will merge the photo into the matching part row and remove the helper row.
+1. Define the component in `connectors` or `cables` as usual.
+2. Add a helper entry in `additional_bom_items`.
+3. Set `spn` to an HTML `<img>` tag.
+4. Match the `Designators` or `MPN` of the target component.
 
-Minimal example:
+*WireVizHelper merges this helper row into the main part row during the build.*
+
+**Example:**
 
 ```yaml
 additional_bom_items:

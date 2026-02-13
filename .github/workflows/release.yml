@@ -42,12 +42,12 @@ jobs:
           Copy-Item -Recurse -Force $graphvizRoot/* vendor/graphviz/
 
       - name: Build full EXE
-        run: python -m PyInstaller WireVizProjectAssistant.spec
+        run: python -m PyInstaller WireVizHelper.spec
 
       - name: Smoke test packaged full EXE
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
+          .\dist\WireVizHelper\WireVizHelper.exe --smoke-test --workdir .\ci-smoke-full
       
       - name: List smoke outputs (full)
         shell: pwsh
@@ -80,13 +80,13 @@ jobs:
 
       - name: Build simple EXE
         if: ${{ false }}
-        run: python -m PyInstaller WireVizProjectAssistant.simple.spec
+        run: python -m PyInstaller WireVizHelper.simple.spec
 
       - name: Smoke test packaged simple EXE
         if: ${{ false }}
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant-simple.exe --smoke-test --workdir .\ci-smoke-simple
+          .\dist\WireVizHelper-simple.exe --smoke-test --workdir .\ci-smoke-simple
       
       - name: List smoke outputs (simple)
         if: ${{ false }}
@@ -116,20 +116,20 @@ jobs:
       - name: GUI smoke test (full)
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-smoke
+          .\dist\WireVizHelper\WireVizHelper.exe --gui-smoke
 
       - name: GUI scripted build (full)
         shell: pwsh
         run: |
           $yaml = (Resolve-Path .\starter\drawing.yaml).Path
           $outdir = Join-Path $PWD "ci-gui-full"
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
+          .\dist\WireVizHelper\WireVizHelper.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: GUI smoke test (simple)
         if: ${{ false }}
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant-simple.exe --gui-smoke
+          .\dist\WireVizHelper-simple.exe --gui-smoke
 
       - name: GUI scripted build (simple)
         if: ${{ false }}
@@ -137,7 +137,7 @@ jobs:
         run: |
           $yaml = (Resolve-Path .\starter\drawing.yaml).Path
           $outdir = Join-Path $PWD "ci-gui-simple"
-          .\dist\WireVizProjectAssistant-simple.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
+          .\dist\WireVizHelper-simple.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
       
       - name: Verify GUI outputs (full)
         shell: pwsh
@@ -201,7 +201,7 @@ jobs:
 
       - name: Archive portable build
         shell: pwsh
-        run: Compress-Archive -Path dist/WireVizProjectAssistant/* -DestinationPath dist/WireVizHelper.zip
+        run: Compress-Archive -Path dist/WireVizHelper/* -DestinationPath dist/WireVizHelper.zip
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2

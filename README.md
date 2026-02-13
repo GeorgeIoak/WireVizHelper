@@ -1,97 +1,42 @@
-# WireVizHelper / WireViz Project Assistant
+# WireVizHelper
 
-WireVizHelper extends WireViz to produce engineering-style drawing sheets and richer BOM output while keeping YAML as the source of truth.
+WireVizHelper extends [WireViz](https://github.com/wireviz/WireViz) to produce engineering-style drawing sheets, a richer engineering template output, and improved BOM handling while keeping YAML as the source of truth.
 
-The core focus is the Python build pipeline and engineering-sheet output. The **WireViz Project Assistant** GUI/EXE is a convenience layer on top of that pipeline.
+You still use standard WireViz YAML features, syntax, and commands for your drawings. WireVizHelper wraps on top of that workflow with engineering-focused output and packaging convenience.
+Thanks to the WireViz maintainers and contributors for building such a useful foundation.
 
----
+The primary goal is reliable Python-based drawing generation across platforms. The Windows app (`WireVizHelper.exe`) is a convenience option for users who do not want to install Python dependencies manually.
 
-## What It Does
+## Engineering Template Highlights
 
-### Core WireVizHelper Features
+<img src="docs/images/drawing-preview.png" width="900" alt="WireVizHelper engineering sheet preview">
 
-- Generates an engineering-sheet style HTML output with title block, notes, and branding.
-- Merges photo helper rows into the matching BOM part row (`SPN` becomes `Product Photo`).
-- Generates single-page PDF output from the rendered HTML using a headless Chromium-based browser (Edge/Chrome/Brave/Chromium).
-- Scaffolds new project folders with starter YAML, images, and templates.
+- **Engineering Sheet Output**: Generates a print-ready HTML/PDF with title block, notes panel, and branding.
+- **BOM Photo Integration**: Merges photo helper rows into matching BOM part rows (`SPN` becomes `Product Photo`).
+- **Automated PDF Generation**: Uses your local Chromium-based browser (headless) to export PDFs.
+- **Project Scaffolding**: Quickly creates new project folders with starter YAML and templates.
 
-### WireViz Project Assistant (GUI)
+For configuration details, see [`docs/yaml-options.md`](docs/yaml-options.md).
 
-- Create new WireViz project folders with a simple dialog.
-- Build existing projects without using the command line.
-- Optional automatic opening of the output folder after build.
-- Works as a standalone EXE (portable full package).
+## Running from Source (macOS/Linux/Windows)
 
----
+1. Clone this repository.
+2. Install Python dependencies.
+3. Install Graphviz on your system.
+4. Scaffold and build your project.
 
-## Downloads
-
-You can obtain builds from GitHub Actions artifacts or GitHub Releases:
-
-- GitHub Actions artifact `WireVizHelper`: portable folder payload (single extraction, no nested zip).
-- GitHub Release asset `WireVizHelper.zip`: portable folder build (EXE + bundled runtime files).
-
-The supported Windows distribution is the portable full package.
-
-## Install And Use (Windows Release)
-
-1. Download `WireVizHelper` artifact (Actions) or `WireVizHelper.zip` (Release).
-2. Extract to a normal local folder (for example `C:\Tools\WireVizProjectAssistant`).
-3. Run `WireVizProjectAssistant.exe` from the extracted folder.
-4. In the app, use `Create New Project` to scaffold starter files and `Build Existing Project` to generate HTML/SVG/PNG/TSV/PDF outputs.
-
-Notes:
-
-- Keep all files together in the extracted `full.zip` folder.
-- On first run, if a required runtime file is missing, the app now shows a startup error dialog.
-
-## Advanced CLI Use (Packaged EXE)
-
-The packaged EXE supports command-line usage for advanced users.
-
-```powershell
-# Print installed version
-.\WireVizProjectAssistant.exe --version
-
-# Build from YAML (same pipeline as build.py)
-.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml
-
-# Pass extra WireViz arguments after --
-.\WireVizProjectAssistant.exe build .\my-project\drawing.yaml -- --output-dir .\out --output-name drawing_v2
-
-# Scaffold a new project folder (same behavior as scaffold.py)
-.\WireVizProjectAssistant.exe scaffold --name "Panel Harness A" --dest C:\Work\Drawings
+```bash
+git clone https://github.com/GeorgeIoak/WireVizHelper
+cd WireVizHelper
+python -m pip install -r requirements.txt
 ```
 
-## Local EXE Build (Windows)
+Graphviz install examples:
 
 ```powershell
-pip install -r requirements.txt pyinstaller
+# Windows (PowerShell)
+winget install Graphviz.Graphviz
 ```
-
-Populate `vendor/` with portable binaries (same layout used in CI):
-
-- `vendor/graphviz/bin/dot.exe`
-
-Then build:
-
-```powershell
-# full portable folder build
-pyinstaller WireVizProjectAssistant.spec
-```
-
-`vendor/graphviz/.gitkeep` is a placeholder so folder structure is tracked in git.
-
-Smoke-test packaged EXEs headlessly (used by CI workflows):
-
-```powershell
-# full portable
-.\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --smoke-test --workdir .\ci-smoke-full
-```
-
-## Manual Dependencies (Source/Dev Use)
-
-If you run from source instead of packaged EXEs, install runtime dependencies on your system:
 
 ```bash
 # macOS
@@ -110,83 +55,53 @@ Verify Graphviz:
 dot -V
 ```
 
-GUI dependency note: this project uses `FreeSimpleGUI` (community fork API-compatible with classic PySimpleGUI).
-
-PDF note: packaged EXE builds use a headless Chromium-based browser. You can override the browser path with:
+Build a project:
 
 ```bash
-# macOS / Linux
-export WIREVIZ_PDF_BROWSER=/path/to/chrome
-```
-
-```powershell
-# Windows (PowerShell)
-$env:WIREVIZ_PDF_BROWSER = "C:\Path\To\msedge.exe"
-```
-
-## Quick Start
-
-```powershell
-# 1) Create a new project
-python scaffold.py --name "My Cable Drawing" --dest "C:\Users\me\Documents\Design"
-
-# 2) Edit the YAML in the new project folder
-cd "C:\Users\me\Documents\Design\My_Cable_Drawing"
-
-# 3) Build output files
-python "C:\path\to\WireVizHelper\build.py" drawing.yaml
-```
-
-```bash
-# macOS / Linux equivalent
 python scaffold.py --name "My Cable Drawing" --dest ~/Design
 cd ~/Design/My_Cable_Drawing
 python /path/to/WireVizHelper/build.py drawing.yaml
 ```
 
-First run of `scaffold.py` or `build.py` may auto-install Python dependencies from `requirements.txt`.
+Windows PowerShell example:
 
-## Typical Workflow
-
-1. Keep this repo separate from your cable project folders.
-2. Scaffold once per project.
-3. Edit project YAML (`drawing.yaml` or custom name).
-4. Run `build.py` against that YAML from any location.
-
-```bash
-python /path/to/WireVizHelper/build.py /path/to/project/drawing.yaml
+```powershell
+python scaffold.py --name "My Cable Drawing" --dest "C:\Users\me\Documents\Design"
+cd "C:\Users\me\Documents\Design\My_Cable_Drawing"
+python "C:\path\to\WireVizHelper\build.py" drawing.yaml
 ```
 
-## Output Summary
+## Windows App (No Python Setup)
 
-- BOM column header `SPN` is renamed to `Product Photo`.
-- Photo helper rows are merged into matching rows (by `Designators` or `MPN`) and removed.
-- Image paths are rewritten for output-folder correctness.
-- PDF is emitted through browser print-to-PDF.
+1. Download `WireVizHelper.zip` from GitHub Releases.
+   Advanced: CI artifacts from GitHub Actions are available for development/testing.
+2. Extract to a normal local folder (example: `C:\Tools\WireVizHelper`).
+3. Run `WireVizHelper.exe`.
 
-## Scaffold Options
+Important:
 
-```bash
-# New project folder
-python scaffold.py --name "My Cable Project" --dest /path/to/projects
+- Keep `WireVizHelper.exe` and the `_internal` folder together after extraction.
+- If `_internal` is moved or missing, the app will fail to start.
 
-# Custom YAML file name
-python scaffold.py --name "My Cable Project" --dest /path/to/projects --yaml-name harness.yaml
+## Basic Use
 
-# Scaffold in current folder
-python scaffold.py --in-place --dest .
+In the app:
+
+1. Use `Create New Project` to scaffold starter files.
+2. Edit your YAML.
+3. Use `Build Existing Project` to generate HTML/PDF engineering-sheet outputs plus standard WireViz diagram exports (SVG/PNG/TSV).
+
+## CLI Use (Packaged EXE)
+
+```powershell
+.\WireVizHelper.exe --version
+.\WireVizHelper.exe build .\my-project\drawing.yaml
+.\WireVizHelper.exe scaffold --name "Panel Harness A" --dest C:\Work\Drawings
 ```
-
-Generated project contents:
-
-- `drawing.yaml` (or custom YAML name)
-- `images/`
-- `reference/`
-- `README.md`
-- `.gitignore`
 
 ## Documentation Map
 
+- Developer packaging and CI notes: [`docs/developer-packaging.md`](docs/developer-packaging.md)
 - YAML fields and metadata: [`docs/yaml-options.md`](docs/yaml-options.md)
 - Troubleshooting guide: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - Starter YAML example: [`examples/minimal_drawing.yaml`](examples/minimal_drawing.yaml)

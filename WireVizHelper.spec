@@ -1,4 +1,4 @@
-# WireVizProjectAssistant.simple.spec
+# WireVizHelper.spec
 
 import os
 from pathlib import Path
@@ -14,12 +14,13 @@ graphviz_bin = graphviz_root / "bin"
 starter_dir = root / "starter"
 template_file = root / "engineering-sheet.html"
 gitignore_file = root / ".gitignore"
+version_info_file = root / "windows-version-info.txt"
+icon_file = root / "assets" / "icons" / "wirevizhelper.ico"
 
 os.environ["PATH"] = (
     str(graphviz_bin) + os.pathsep +
     os.environ.get("PATH", "")
 )
-
 
 def safe_collect(package: str) -> list[str]:
     try:
@@ -72,7 +73,17 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name="WireVizProjectAssistant-simple",
+    name="WireVizHelper",
     console=False,
-    onefile=True,
+    version=str(version_info_file),
+    icon=str(icon_file),
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    name="WireVizHelper",
 )

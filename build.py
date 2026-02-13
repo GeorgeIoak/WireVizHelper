@@ -1,9 +1,12 @@
 #!/usr/bin/env python
-"""WireViz build wrapper with minimal BOM header normalization.
+"""WireViz build wrapper — run WireViz and post-process outputs.
 
-This script intentionally keeps post-processing minimal and generic:
-1) Run WireViz on the selected YAML file.
-2) Rename BOM header `SPN` -> `Product Photo` in generated HTML/TSV outputs.
+Post-processing steps (all optional / best-effort):
+  - Merge photo-helper BOM rows into their parent component rows.
+  - Rename BOM header ``SPN`` -> ``Product Photo`` in HTML/TSV.
+  - Rewrite relative image paths so they resolve from the output directory.
+  - Generate a single-page PDF via headless Chromium (or WeasyPrint / wkhtmltopdf).
+  - Warn when the notes panel is likely to overflow.
 
 Usage:
   python build.py [path/to/drawing.yaml] [-- <extra wireviz args>]
@@ -443,10 +446,12 @@ def _normalize_pdf_paper(paper: str | None) -> str | None:
 
 
 def _keep_pdf_temp_enabled() -> bool:
+    """Set WIREVIZ_PDF_KEEP_TEMP=1 to preserve the intermediate PDF HTML file."""
     return os.environ.get("WIREVIZ_PDF_KEEP_TEMP", "").strip() == "1"
 
 
 def _pdf_debug_watermark_enabled() -> bool:
+    """Set WIREVIZ_PDF_DEBUG_WATERMARK=1 to stamp the active paper override on the PDF."""
     return os.environ.get("WIREVIZ_PDF_DEBUG_WATERMARK", "").strip() == "1"
 
 
@@ -636,6 +641,7 @@ def generate_pdf_via_browser(html_path: Path, pdf_path: Path, sheetsize: str) ->
                 browser,
                 headless,
                 "--landscape",
+                # Both flags suppress page header/footer across Chromium versions.
                 "--no-pdf-header-footer",
                 "--print-to-pdf-no-header",
                 f"--print-to-pdf={pdf_arg}",
@@ -1163,8 +1169,9 @@ def main() -> None:
     sheetsize = resolve_sheetsize(yaml_data)
     output_dir.mkdir(parents=True, exist_ok=True)
     copied_template = prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+    cmd_preview = wireviz_command_with_output(yaml_path, passthrough, output_dir)
+    print(f"Running: {' '.join(cmd_preview)}")
     result_code, cmd_display, stdout, stderr = run_wireviz(yaml_path, passthrough, output_dir)
-    print(f"Running: {cmd_display}")
     if result_code != 0:
         log_path = output_dir / "wireviz-error.log"
         log_lines = [

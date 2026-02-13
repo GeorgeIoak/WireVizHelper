@@ -42,10 +42,10 @@ jobs:
           Copy-Item -Recurse -Force $graphvizRoot/* vendor/graphviz/
 
       - name: Build full EXE
-        run: python -m PyInstaller WireVizProjectAssistant.spec
+        run: python -m PyInstaller WireVizHelper.spec
 
       - name: Build console EXE (diagnostics)
-        run: python -m PyInstaller WireVizProjectAssistant.ci.spec
+        run: python -m PyInstaller WireVizHelper.ci.spec
 
       - name: Diagnostic environment dump
         shell: pwsh
@@ -55,7 +55,7 @@ jobs:
           "=== where dot ==="
           where.exe dot
           "=== dot -V ==="
-          & ".\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe" --version
+          & ".\dist\WireVizHelper-ci\WireVizHelper-ci.exe" --version
 
       - name: Smoke test packaged console EXE
         shell: pwsh
@@ -64,7 +64,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
           $env:TEMP = $tempDir
           $env:TMP = $tempDir
-          .\dist\WireVizProjectAssistant-ci\WireVizProjectAssistant-ci.exe --smoke-test --workdir .\ci-smoke-full
+          .\dist\WireVizHelper-ci\WireVizHelper-ci.exe --smoke-test --workdir .\ci-smoke-full
       
       - name: List smoke outputs (full)
         shell: pwsh
@@ -98,7 +98,7 @@ jobs:
       - name: GUI smoke test (full)
         shell: pwsh
         run: |
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-smoke
+          .\dist\WireVizHelper\WireVizHelper.exe --gui-smoke
 
       - name: GUI scripted build (full)
         shell: pwsh
@@ -116,7 +116,7 @@ jobs:
           if (Test-Path $edge) {
             $env:WIREVIZ_PDF_BROWSER = $edge
           }
-          .\dist\WireVizProjectAssistant\WireVizProjectAssistant.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
+          .\dist\WireVizHelper\WireVizHelper.exe --gui-scripted --yaml "$yaml" --outdir "$outdir"
 
       - name: Verify GUI outputs (full)
         shell: pwsh
@@ -172,4 +172,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: WireVizHelper
-          path: dist/WireVizProjectAssistant/**
+          path: dist/WireVizHelper/**

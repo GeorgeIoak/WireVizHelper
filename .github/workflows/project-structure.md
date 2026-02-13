@@ -1,11 +1,11 @@
-WireVizProjectAssistant/
+WireVizHelper/
 │
 ├── gui.py
 ├── version.py
 ├── scaffold.py
 ├── build.py
 ├── requirements.txt
-├── WireVizProjectAssistant.spec
+├── WireVizHelper.spec
 ├── CHANGELOG.md
 │
 ├── starter/

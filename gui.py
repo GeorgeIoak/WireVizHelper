@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""WireVizHelper GUI and CLI entry point.
+
+Provides the main launcher window, project scaffolding dialog, build dialog,
+and headless modes (smoke test, scripted build) used by CI.
+"""
 import argparse
 import csv
 import os
@@ -111,8 +116,9 @@ def run_smoke_test(workdir: Path) -> int:
             return 1
 
         copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
+        cmd_preview = build.wireviz_command_with_output(yaml_path, [], output_dir)
+        print(f"Smoke test WireViz command: {' '.join(cmd_preview)}")
         result_code, cmd_display, stdout, stderr = build.run_wireviz(yaml_path, [], output_dir)
-        print(f"Smoke test WireViz command: {cmd_display}")
         if result_code != 0:
             _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
             _append_smoke_debug(output_dir, f"WIREVIZ EXIT: {result_code}")
@@ -360,13 +366,10 @@ def run_build_scripted(
     yaml_data = build.load_yaml_data(yaml_path)
 
     passthrough = extra_args
-    _, resolved_output_name = build.resolve_output_paths(yaml_path, passthrough)
+    output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
 
     if outdir_override:
         output_dir = outdir_override.expanduser().resolve()
-        output_name = resolved_output_name
-    else:
-        output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     copied_template = build.prepare_local_template_for_output(yaml_path, output_dir, yaml_data)
@@ -421,7 +424,7 @@ def run_build_scripted(
 def parse_args() -> tuple[argparse.Namespace, list[str]]:
     p = argparse.ArgumentParser(
         add_help=True,
-        description="WireViz Project Assistant GUI and CLI.",
+        description="WireVizHelper GUI and CLI.",
     )
     p.add_argument(
         "--smoke-test",
@@ -502,7 +505,7 @@ def run_scaffold_cli(args: argparse.Namespace) -> int:
         print("Next steps:")
         print(f"  cd {target}")
         print(f"  edit {yaml_name}")
-        print(f"  python /path/to/toolkit/build.py {yaml_name}")
+        print(f"  python build.py {yaml_name}  (or use the Build GUI)")
         return 0
     except ValueError as e:
         print(f"Error: {e}")
@@ -623,13 +626,10 @@ def run_build_gui():
 
                 yaml_path = build.resolve_yaml(script_args)
                 yaml_data = build.load_yaml_data(yaml_path)
-                _, resolved_output_name = build.resolve_output_paths(yaml_path, passthrough)
+                output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
 
                 if outdir_override:
                     output_dir = Path(outdir_override).resolve()
-                    output_name = resolved_output_name
-                else:
-                    output_dir, output_name = build.resolve_output_paths(yaml_path, passthrough)
 
                 output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -640,21 +640,7 @@ def run_build_gui():
                     yaml_path, passthrough, output_dir
                 )
                 if result_code != 0:
-                    log_path = output_dir / "wireviz-error.log"
-                    log_lines = [
-                        "=== WIREVIZ FAILURE ===",
-                        f"Command: {cmd_display}",
-                        f"Exit code: {result_code}",
-                    ]
-                    if stdout:
-                        log_lines.append("")
-                        log_lines.append("=== STDOUT ===")
-                        log_lines.append(stdout)
-                    if stderr:
-                        log_lines.append("")
-                        log_lines.append("=== STDERR ===")
-                        log_lines.append(stderr)
-                    log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
+                    log_path = _write_wireviz_log(output_dir, cmd_display, result_code, stdout, stderr)
                     sg.popup_error(
                         "Build failed.\n\n"
                         f"See log:\n{log_path}"
@@ -743,7 +729,7 @@ def main():
     build.configure_portable_runtime()
 
     if args.version:
-        print(f"WireViz Project Assistant {__version__}")
+        print(f"WireVizHelper {__version__}")
         raise SystemExit(0)
 
     if args.smoke_test:
@@ -793,14 +779,14 @@ def main():
     sg.theme("SystemDefault")
 
     layout = [
-        [sg.Text(f"WireViz Project Assistant v{__version__}", font=("Segoe UI", 16))],
+        [sg.Text(f"WireVizHelper v{__version__}", font=("Segoe UI", 16))],
         [sg.Button("Create New Project", size=(25, 2))],
         [sg.Button("Build Existing Project", size=(25, 2))],
         [sg.HorizontalSeparator()],
         [sg.Button("Exit", size=(25, 1))]
     ]
 
-    win = sg.Window(f"WireViz Project Assistant v{__version__}", layout)
+    win = sg.Window(f"WireVizHelper v{__version__}", layout)
 
     while True:
         ev, _ = win.read()
