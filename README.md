@@ -99,6 +99,18 @@ In the app:
 .\WireVizHelper.exe scaffold --name "Panel Harness A" --dest C:\Work\Drawings
 ```
 
+## Roadmap / TODO
+
+- Add optional engineering-sheet PNG output (`drawing.sheet.png`) generated from the final PDF for deterministic results.
+- Investigate engineering-sheet SVG output feasibility (current `drawing.svg` is the native WireViz diagram export, not the full sheet).
+- Explore DXF export options for CAD-oriented workflows.
+
+Implementation notes:
+
+- Preferred near-term path for PNG: convert the already-validated final PDF to PNG, rather than browser screenshot capture.
+- Keep existing native WireViz outputs (`drawing.svg`, `drawing.png`) unchanged for compatibility.
+- If DXF is added, ship it as an additional export (`drawing.sheet.dxf`) without changing current outputs.
+
 ## Documentation Map
 
 - Developer packaging and CI notes: [`docs/developer-packaging.md`](docs/developer-packaging.md)
