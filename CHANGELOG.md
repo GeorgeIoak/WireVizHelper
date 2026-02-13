@@ -12,6 +12,10 @@ All notable changes to **WireVizHelper** will be documented here.
 - Browser PDF failures now return detailed diagnostics (browser attempt, mode, exit output, HTML/PDF paths).
 - Packaged EXE no longer falls through to WeasyPrint/wkhtmltopdf on browser failure, preventing misleading `weasyprint` errors.
 
+## [1.1.16] - 2026-02-13
+### Changed
+- Release workflow now triggers automatically on version tags (`v*`) in addition to manual dispatch.
+
 ## [1.1.15] - 2026-02-13
 ### Fixed
 - Print the WireViz command preview before execution in CLI and smoke-test flows for clearer logs.
