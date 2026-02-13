@@ -12,6 +12,12 @@ All notable changes to **WireVizHelper** will be documented here.
 - Browser PDF failures now return detailed diagnostics (browser attempt, mode, exit output, HTML/PDF paths).
 - Packaged EXE no longer falls through to WeasyPrint/wkhtmltopdf on browser failure, preventing misleading `weasyprint` errors.
 
+## [1.1.19] - 2026-02-13
+### Changed
+- Simplified workflow naming to `Build WireVizHelper App` and `Release WireVizHelper App`.
+- Isolated CI flow so branch pushes run build validation, while version tags trigger release publishing.
+- Added roadmap notes for engineering-sheet PNG/SVG/DXF follow-up outputs.
+
 ## [1.1.16] - 2026-02-13
 ### Changed
 - Release workflow now triggers automatically on version tags (`v*`) in addition to manual dispatch.
