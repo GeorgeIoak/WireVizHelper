@@ -1,4 +1,4 @@
-name: Release Build
+name: Release WireVizHelper App
 
 "on":
   workflow_dispatch:
@@ -44,13 +44,20 @@ jobs:
           }
           Copy-Item -Recurse -Force $graphvizRoot/* vendor/graphviz/
 
-      - name: Build full EXE
+      - name: Build WireVizHelper App
         run: python -m PyInstaller WireVizHelper.spec
 
-      - name: Smoke test packaged full EXE
+      - name: Build console EXE (diagnostics)
+        run: python -m PyInstaller WireVizHelper.ci.spec
+
+      - name: Smoke test packaged app (console diagnostics)
         shell: pwsh
         run: |
-          .\dist\WireVizHelper\WireVizHelper.exe --smoke-test --workdir .\ci-smoke-full
+          $tempDir = Join-Path $PWD "ci-temp"
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          $env:TEMP = $tempDir
+          $env:TMP = $tempDir
+          .\dist\WireVizHelper-ci\WireVizHelper-ci.exe --smoke-test --workdir .\ci-smoke-full
       
       - name: List smoke outputs (full)
         shell: pwsh
