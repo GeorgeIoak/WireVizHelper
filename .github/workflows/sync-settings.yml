@@ -49,8 +49,11 @@ jobs:
           echo "1. Verify the Settings app is installed: https://github.com/apps/settings"
           echo "2. Check that the app has repository access"
           echo "3. Try uninstalling and reinstalling the app"
-          echo "4. Or manually configure via GitHub UI (see ABOUT-SETUP.md)"
+          echo "4. Or manually configure via GitHub UI (see .github/ABOUT-SETUP.md)"
           echo ""
-          echo "Expected settings:"
-          echo "Description: WireVizHelper extends WireViz to produce engineering-style drawing sheets..."
-          echo "Topics: wireviz, wiring-diagram, engineering-drawings, python, graphviz, etc."
+          echo "Expected description:"
+          grep "description:" .github/settings.yml | head -1 | sed 's/.*description: //'
+          echo ""
+          echo "Expected topics:"
+          grep -A 20 "topics:" .github/settings.yml | grep "    -" | sed 's/    - /  • /'
+
