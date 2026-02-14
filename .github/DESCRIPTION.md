@@ -44,6 +44,8 @@ Add the following topics (tags) to help users discover your repository:
 - `pdf-generation`
 - `engineering-tools`
 - `electrical-engineering`
+- `automation`
+- `yaml`
 
 ## Additional Options
 

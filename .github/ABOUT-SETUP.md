@@ -23,6 +23,8 @@ The "About" section on your GitHub repository page needs to be configured separa
    - pdf-generation
    - engineering-tools
    - electrical-engineering
+   - automation
+   - yaml
 
 5. **Optionally add website URL**:
    ```
@@ -46,4 +48,4 @@ If you prefer automated configuration:
 - Shows up in topic-based searches
 - Improves the professional appearance of your repository
 
-See [`.github/DESCRIPTION.md`](.github/DESCRIPTION.md) for more details.
+See [`DESCRIPTION.md`](DESCRIPTION.md) for more details.
