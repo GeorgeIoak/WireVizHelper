@@ -1,5 +1,18 @@
 # Quick Setup Guide
 
+## TL;DR - Quick Fix
+
+If you installed the Settings app but your About section isn't updating:
+
+1. **Go to Actions tab** in your GitHub repository
+2. **Click "Sync Repository Settings"** workflow (left sidebar)
+3. **Click "Run workflow"** button (top right)
+4. **Wait 1-2 minutes** for the Settings app to process
+
+That's it! The About section should now show your description and topics.
+
+---
+
 ## Configuring the GitHub "About" Section
 
 The "About" section on your GitHub repository page needs to be configured separately from the README.
