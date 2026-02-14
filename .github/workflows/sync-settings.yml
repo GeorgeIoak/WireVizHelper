@@ -1,0 +1,62 @@
+name: Sync Repository Settings
+
+# This workflow helps trigger the Settings GitHub App to sync repository metadata
+# from the .github/settings.yml file to the repository's About section.
+#
+# The Settings app (https://github.com/apps/settings) automatically syncs on:
+# - Push events that modify .github/settings.yml
+# - Initial installation
+# 
+# This workflow can be manually triggered to force a settings update.
+
+on:
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+  
+  # Automatically trigger when settings.yml is modified
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/settings.yml'
+
+jobs:
+  trigger-sync:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Verify settings.yml exists
+        run: |
+          if [ -f .github/settings.yml ]; then
+            echo "✅ settings.yml found"
+            echo "Contents:"
+            cat .github/settings.yml
+          else
+            echo "❌ settings.yml not found"
+            exit 1
+          fi
+      
+      - name: Trigger Settings Sync
+        run: |
+          echo "🔄 Settings file has been updated or workflow manually triggered."
+          echo ""
+          echo "The Settings GitHub App should automatically sync within a few minutes."
+          echo ""
+          echo "If the About section is not updated after 5 minutes:"
+          echo "1. Verify the Settings app is installed: https://github.com/apps/settings"
+          echo "2. Check that the app has repository access"
+          echo "3. Try uninstalling and reinstalling the app"
+          echo "4. Or manually configure via GitHub UI (see .github/ABOUT-SETUP.md)"
+          echo ""
+          echo "Expected description:"
+          grep "description:" .github/settings.yml | head -1 | sed 's/.*description: //'
+          echo ""
+          echo "Expected topics:"
+          grep -A 20 "topics:" .github/settings.yml | grep "    -" | sed 's/    - /  • /'
+

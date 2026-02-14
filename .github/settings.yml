@@ -6,7 +6,15 @@
 # To use this file:
 # 1. Install the "Settings" GitHub App from https://github.com/apps/settings
 # 2. Grant it access to this repository
-# 3. The app will automatically sync these settings to your repository
+# 3. Trigger the sync by:
+#    a) The app syncs automatically on first install (if this file exists)
+#    b) Push any change to this file to the main branch
+#    c) Run the "Sync Repository Settings" workflow from the Actions tab
+#
+# If settings don't update after installing the app:
+# - Go to Actions tab → Run "Sync Repository Settings" workflow
+# - Or make a small edit to this file and push to main
+# - Or follow manual steps in .github/ABOUT-SETUP.md
 #
 # Alternatively, you can manually configure these settings through the GitHub web interface
 # by clicking the gear icon next to "About" on the repository main page.
@@ -41,3 +49,4 @@ repository:
   
   # Default branch - usually 'main' or 'master'
   default_branch: main
+
