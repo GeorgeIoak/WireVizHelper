@@ -16,7 +16,7 @@ repository:
   description: "WireVizHelper extends WireViz to produce engineering-style drawing sheets with enhanced BOM handling and PDF output. Python-based with optional Windows executable."
   
   # A URL with more information about the repository
-  homepage: "https://github.com/GeorgeIoak/WireVizHelper/blob/main/docs/yaml-options.md"
+  homepage: "https://github.com/GeorgeIoak/WireVizHelper"
   
   # Repository topics (tags for discoverability)
   topics:
