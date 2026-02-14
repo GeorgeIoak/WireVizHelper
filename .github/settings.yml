@@ -1,0 +1,43 @@
+# GitHub Repository Settings Configuration
+# 
+# This file can be used with GitHub Apps like "Probot: Settings" or "Repository Settings"
+# to automatically configure repository metadata.
+#
+# To use this file:
+# 1. Install the "Settings" GitHub App from https://github.com/apps/settings
+# 2. Grant it access to this repository
+# 3. The app will automatically sync these settings to your repository
+#
+# Alternatively, you can manually configure these settings through the GitHub web interface
+# by clicking the gear icon next to "About" on the repository main page.
+
+repository:
+  # A short description of the repository
+  description: "WireVizHelper extends WireViz to produce engineering-style drawing sheets with enhanced BOM handling and PDF output. Python-based with optional Windows executable."
+  
+  # A URL with more information about the repository
+  homepage: "https://github.com/GeorgeIoak/WireVizHelper/blob/main/docs/yaml-options.md"
+  
+  # Repository topics (tags for discoverability)
+  topics:
+    - wireviz
+    - wiring-diagram
+    - engineering-drawings
+    - python
+    - graphviz
+    - cable-harness
+    - bom
+    - pdf-generation
+    - engineering-tools
+    - electrical-engineering
+    - automation
+    - yaml
+
+  # Keep the following as-is for open source projects
+  has_issues: true
+  has_projects: true
+  has_wiki: true
+  has_downloads: true
+  
+  # Default branch - usually 'main' or 'master'
+  default_branch: main
